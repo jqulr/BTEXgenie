@@ -25,14 +25,14 @@ import matplotlib.pyplot as plt
 #   --btex-hmm /home/juneq/hmm/validation_genomes/atested/abtested_results/hmmsearch_summary_all_hits.csv \
 #   --pfam-hmm /home/juneq/hmm/validation_genomes/atested/abtested_results/pfam_hmmsearch_summary.csv \
 #   --btex-pathway-map /home/juneq/hmm/archetypes/hmm_cutoffs/pathway_map_aryl_benz_deleted.tsv \
-#   --pfam-map /home/juneq/hmm/validation_genomes/T12D_validated/t12d_pfam_map.tsv \
+#   --pfam-map /home/juneq/hmm/archetypes/hmm_cutoffs/master_pfam_map.tsv \
 #   --kofam-hits-dir /home/juneq/hmm/validation_genomes/atested/genomes \
 #   --ko-map /home/juneq/hmm/archetypes/hmm_cutoffs/ko_map.tsv \
-#   --out-svg /home/juneq/hmm/validation_genomes/atested/figures/ko_output_percent_1118.png \
-#   --out-tsv /home/juneq/hmm/validation_genomes/atested/figures/ko_output_percent_1118.matrix.tsv \
+#   --out-svg /home/juneq/hmm/validation_genomes/atested/figures/ko_output_percent_1119.png \
+#   --out-tsv /home/juneq/hmm/validation_genomes/atested/figures/ko_output_percent_1119.matrix.tsv \
 #   --value-mode percent \
 #   --include-pfam-ko \
-#   --out-order /home/juneq/hmm/validation_genomes/atested/figures/ko_output_1118.samples_order.txt
+#   --out-order /home/juneq/hmm/validation_genomes/atested/figures/ko_output_1119.samples_order.txt
 
 def _split_tokens(s: str):
     if s is None or (isinstance(s, float) and np.isnan(s)):
@@ -480,13 +480,29 @@ def main():
 
     ko_hits_df = read_kofam_hits(Path(args.kofam_hits_dir))
 
-    samples_ref = sorted(set(btex["sample"]) | set(pfam["sample"]) | set(ko_hits_df["sample"]))
+    btex_samples = set(btex["sample"].unique())
+    pfam_samples = set(pfam["sample"].unique())
+    ko_samples = set(ko_hits_df["sample"].unique())
+
+    btex_pfam_union = btex_samples | pfam_samples
+
+    # genomes in BTEX or PFAM but with no KO hits at all
+    missing_ko = sorted(btex_pfam_union - ko_samples)
+
+    # genomes that have KO hits but do not appear in BTEX or PFAM
+    extra_ko = sorted(ko_samples - btex_pfam_union)
+
+    samples_ref = sorted(btex_pfam_union | ko_samples)
     ko_hits_df = ko_hits_df[ko_hits_df["sample"].isin(samples_ref)]
-    print("BTEX samples:", len(btex["sample"].unique()))
-    print("PFAM samples:", len(pfam["sample"].unique()))
-    print("KO unique samples before filter:", ko_hits_df["sample"].nunique())
-    print("Example KO samples:", sorted(ko_hits_df["sample"].unique())[:5])
+
+    print("BTEX samples:", len(btex_samples))
+    print("PFAM samples:", len(pfam_samples))
+    print("KO unique samples before filter:", len(ko_samples))
+    print("Example KO samples:", sorted(ko_samples)[:5])
     print("Totals index size:", totals.index.size)
+    print("Genomes with BTEX/PFAM but no KO hits:", missing_ko)
+    print("Genomes with KO hits but no BTEX/PFAM:", extra_ko)
+
     if args.value_mode == "percent":
         missing_totals = [s for s in samples_ref if s not in totals.index]
         if missing_totals:
