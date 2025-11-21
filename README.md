@@ -1,7 +1,7 @@
 # BTEX-HMM: A database for functional annotations of isolate genomes or metagenomes
 
 <a href="HMMs">
-  <img src="img/toluene_button.svg" alt="toluene button" width="60" />
+  <img src="img/toluene.png" alt="toluene button" width="60" />
 </a>
 
 # Usage
