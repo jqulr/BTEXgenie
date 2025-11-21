@@ -1,0 +1,1 @@
+# BTEX-HMM database for functional annotations of isolate genomes or metagenomes
