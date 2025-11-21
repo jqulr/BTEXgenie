@@ -5,4 +5,4 @@
 ## Requirements
 Install HMMER suite and make sure hmmsearch is available on system PATH
 
-'''conda install -c bioconda hmmer'''
+```conda install -c bioconda hmmer```
