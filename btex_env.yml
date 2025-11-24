@@ -1,0 +1,12 @@
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.11
+  - pip
+  - hmmer>=3.3
+  - pandas>=2.0
+  - numpy>=1.24
+  - matplotlib>=3.7
+  - pip:
+      - -e .
