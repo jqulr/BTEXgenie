@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "btexhmm"
+version = "0.1.0"
+description = "BTEX HMM annotation and visualization"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.scripts]
+annotate = "btexhmm.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["btexhmm"]
+exclude = ["img", "HMMs", "benchmarck_scripts", "scripts"]
+
+[tool.setuptools.package-data]
+btexhmm = ["data/*", "data/flat/*"]
