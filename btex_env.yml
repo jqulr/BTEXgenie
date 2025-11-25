@@ -8,5 +8,7 @@ dependencies:
   - pandas>=2.0
   - numpy>=1.24
   - matplotlib>=3.7
+  - biopython>=1.81
+  - circos>=0.69
   - pip:
       - -e .

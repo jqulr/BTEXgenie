@@ -4,9 +4,46 @@
   <img src="img/toluene.png" alt="toluene button" width="60" />
 </a>
 
-# Usage
+This toolkit uses hmmsearch from the HMMER suite to query BTEX-HMM profiles. Ensure HMMER is installed and available on your PATH.
+The following Python packages are needed for visualization and analysis:
 
-## Requirements
-Install HMMER suite and make sure hmmsearch is available on system PATH
+python 3.11
+pip
+hmmer 3.3 or newer
+pandas 2.0 or newer
+numpy 1.24 or newer
+matplotlib 3.7 or newer
+biopython 1.81 or newer
+circos 0.69 or newer
+
+If your system already satisfies these requirements, you can move directly to running the BTEX-HMM scripts.
+Otherwise, you may install everything through Conda or pip as shown below.
+
+## Install via Conda
+Confirm that a working Conda installation is available.
+
+Clone the repository, then install HMMER:
 
 ```conda install -c bioconda hmmer```
+
+Create the BTEX-HMM environment:
+
+``` conda env create -n btex-hmm -f btex_env.yml ```
+
+Activate the environment:
+
+```conda activate btex-hmm```
+
+## Visualization
+For isolate genomes, BTEX-HMM hits can be rendered on a Circos plot together with a GenBank file describing the genomic regions containing the identified profiles.
+
+Circos requires an etc configuration directory, supplied through the argument --etcdir, which provides the defaults for image settings, fonts and housekeeping parameters.
+
+To obtain the correct etc directory:
+
+After activating the Conda environment, set the etc path with:
+
+```ETCDIR=$(dirname "$(dirname "$(which circos)")")/etc```
+
+
+## things change
