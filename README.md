@@ -42,7 +42,7 @@ conda activate btex-hmm
 ## Visualization
 For isolate genomes, BTEX-HMM hits can be rendered on a Circos plot together with a GenBank file describing the genomic regions containing the identified profiles.
 
-Circos requires an etc configuration directory, supplied through the argument `--etcdir`, which provides the defaults for image settings, fonts and housekeeping parameters.
+Circos requires an etc configuration directory (for image settings, fonts, housekeeping). The `circos.py` helper auto-detects this using the `circos` executable on your PATH:
 
 To obtain the correct etc directory (from a conda install):
 
@@ -56,7 +56,7 @@ The `circos.py` helper script builds a complete Circos project for a single geno
 #### Command-line help
 
 ```bash
-python btexhmm/circos.py --help
+run-circos --help
 ```
 
 #### Example
@@ -64,16 +64,19 @@ python btexhmm/circos.py --help
 To generate a Circos plot for the `aromatoleum_aromaticum_ebn1` genome:
 
 ```bash
-python /home/juneq/Toluene-HMM/btexhmm/circos.py \
+run-circos \
+  --hits /home/juneq/Toluene_test/main_output/btex_hmm_summary.csv \
   --outdir /home/juneq/Toluene_test/main_output \
-  --etcdir /home/juneq/.conda/envs/btex-hmm/etc \
   --dna /home/juneq/Toluene_test/fastas/aromatoleum_aromaticum_ebn1.fasta \
-  --project-subdir /home/juneq/Toluene_test/main_output/circos_plots \
-  --genome "aromatoleum_aromaticum_ebn1" \
-  --pathway-map /home/juneq/hmm/archetypes/hmm_cutoffs/pathway_map.tsv
+  --genome "aromatoleum_aromaticum_ebn1" 
 ```
 
 **Notes:**
 
+- `--hits` should point to the `btex_hmm_summary.csv` produced by hmmsearch.py.
 - `--genome` must exactly match the `sample` value in `btex_hmm_summary.csv`.
-- If `--contig-lengths` is omitted, lengths are generated from `--dna` into `<outdir>/contig_length.tsv`.
+- If `--contig-lengths` is omitted, lengths are generated from `--dna` into `<outdir>/<genome>_circos_plot/contig_length.tsv`. Provided contig-length files are copied into that directory for use.
+- Circos outputs are written to `<outdir>/<genome>_circos_plot/`.
+- The `--pathway-map` TSV supports an optional `color` column (`hmm<TAB>pathway<TAB>color`) to keep pathway colors stable across runs (colors can be `r,g,b` or `#RRGGBB`).
+- If `--pathway-map` is omitted, `btexhmm/data/pathway_map.tsv` (relative to this repo) is used when available.
+- Rendering runs automatically (`circos -conf circos.conf`) unless `--no-render` is provided.
