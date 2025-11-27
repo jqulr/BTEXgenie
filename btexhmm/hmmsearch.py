@@ -95,6 +95,35 @@ def find_protein_fastas(gdir: Path, prot_glob: str) -> list[Path]:
     files = sorted(gdir.glob(prot_glob))
     return [p for p in files if p.is_file()]
 
+def run_prodigal_on_fastas(
+    nuc_fastas: list[Path],
+    out_dir: Path,
+    mode: str = "single",
+    skip_existing: bool = False,
+) -> list[Path]:
+    """
+    Run Prodigal on nucleotide FASTA inputs, emitting protein FASTAs (.faa) into out_dir.
+    Returns list of output paths.
+    """
+    if not nuc_fastas:
+        return []
+    check_bin("prodigal")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    outputs: list[Path] = []
+    for nf in nuc_fastas:
+        out_prot = out_dir / f"{nf.stem}.faa"
+        if skip_existing and out_prot.exists() and out_prot.stat().st_size > 0:
+            print(f"[info] skipping prodigal for {nf.name}; found existing {out_prot.name}")
+            outputs.append(out_prot)
+            continue
+        cmd = ["prodigal", "-i", str(nf), "-a", str(out_prot), "-p", mode, "-q"]
+        try:
+            sh(cmd, quiet=False)
+            outputs.append(out_prot)
+        except subprocess.CalledProcessError as e:
+            print(f"[err] prodigal failed for {nf} with code {e.returncode}", file=sys.stderr)
+    return outputs
+
 def load_headers_for_fasta(protein_faa: Path) -> dict[str, str]:
     """
     Build mapping from sequence id -> full header line (including leading '>') for a single FASTA.
@@ -129,11 +158,16 @@ def annotate_proteins(
     domtbl_subdir: str = "domtbl",
     fallback_domtbl_root: str | None = None,
     prot_glob: tuple[str, ...] | str = ("*.faa", "*.fa", "*.fasta", "*.fna"),
+    run_prodigal: bool = False,
+    prodigal_out_dir: Path | None = None,
+    prodigal_mode: str = "single",
     write_output: bool = True,
 ) -> list[list]:
     """
     Run hmmsearch for all protein FASTA files in a directory (or a single FASTA)
-    against all HMMs in hmm_dir and write a combined summary CSV.
+    against all HMMs in hmm_dir and write a combined summary CSV. If no protein
+    FASTAs are found but nucleotide FASTAs are present (or run_prodigal is set),
+    Prodigal is run first to generate .faa files.
     Returns list of output rows (including sample name).
     """
     check_bin("hmmsearch")
@@ -150,6 +184,7 @@ def annotate_proteins(
 
     patterns = (prot_glob,) if isinstance(prot_glob, str) else tuple(prot_glob)
     protein_files: list[Path] = []
+    nucleotide_files: list[Path] = []
     if proteins_path.is_dir():
         for pat in patterns:
             protein_files.extend(sorted(proteins_path.glob(pat)))
@@ -157,6 +192,36 @@ def annotate_proteins(
         protein_files = [proteins_path]
     else:
         raise SystemExit(f"[err] proteins_path not found: {proteins_path}")
+
+    # Reclassify matches into protein vs nucleotide lists so we can optionally run Prodigal.
+    classified_protein_files: list[Path] = []
+    for p in protein_files:
+        if not p.is_file():
+            continue
+        suffix = p.suffix.lower()
+        if suffix in {".faa", ".aa", ".pep"}:
+            classified_protein_files.append(p)
+        elif suffix in {".fna", ".fa", ".fasta", ".ffn"}:
+            nucleotide_files.append(p)
+        else:
+            classified_protein_files.append(p)
+    protein_files = classified_protein_files
+
+    auto_run_prodigal = not protein_files and nucleotide_files
+    if run_prodigal or auto_run_prodigal:
+        prod_out_dir = (
+            Path(prodigal_out_dir)
+            if prodigal_out_dir
+            else (proteins_path.parent / "prodigal_proteins" if proteins_path.is_file() else proteins_path / "prodigal_proteins")
+        )
+        print(f"[info] running prodigal on {len(nucleotide_files)} nucleotide FASTA(s) -> {prod_out_dir}")
+        prot_from_prodigal = run_prodigal_on_fastas(
+            nuc_fastas=nucleotide_files,
+            out_dir=prod_out_dir,
+            mode=prodigal_mode,
+            skip_existing=skip_existing,
+        )
+        protein_files.extend(prot_from_prodigal)
 
     if not protein_files:
         raise SystemExit(f"[err] no FASTA files matching {patterns} in {proteins_path}")
@@ -348,6 +413,13 @@ def main():
     ap.add_argument("--all-hits-per-protein", action="store_true",
                     help="Count all HMM hits for a protein that pass filters. "
                          "Default is to count only the single best-scoring HMM hit per protein.")
+    ap.add_argument("--run-prodigal", action="store_true",
+                    help="Run Prodigal on nucleotide FASTA inputs to create proteins before hmmsearch. "
+                         "Auto-enabled when no protein FASTAs are found but FASTA/FNA files exist.")
+    ap.add_argument("--prodigal-out-dir", default=None,
+                    help="Directory to write Prodigal protein FASTAs (default: <genomes-dir>/prodigal_proteins).")
+    ap.add_argument("--prodigal-mode", default="single", choices=["single", "meta"],
+                    help="Prodigal -p mode (default: single).")
     ap.add_argument("--out", required=True, help="CSV path for output counts (sample,hmm,hits,total_genes,hit_headers)")
     ap.add_argument("--cutoffs", default=None, help="TSV with columns: hmm<TAB>cutoff (may include many models)")
     ap.add_argument("--fallback-domtbl-root", default=None,
@@ -376,6 +448,9 @@ def main():
         domtbl_subdir=args.domtbl_subdir,
         fallback_domtbl_root=args.fallback_domtbl_root,
         prot_glob=prot_globs,
+        run_prodigal=args.run_prodigal,
+        prodigal_out_dir=Path(args.prodigal_out_dir) if args.prodigal_out_dir else None,
+        prodigal_mode=args.prodigal_mode,
     )
 
     if rows:

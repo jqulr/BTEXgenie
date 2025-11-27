@@ -5,6 +5,7 @@ dependencies:
   - python=3.11
   - pip
   - hmmer>=3.3
+  - prodigal
   - pandas>=2.0
   - numpy>=1.24
   - matplotlib>=3.7
