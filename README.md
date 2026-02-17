@@ -1,4 +1,4 @@
-# BTEX-HMM: A database for functional annotations of isolate genomes or metagenomes
+# BTEX-HMM: A database for the functional annotation of BTEX-degradation genes from isolate genomes and metagenomes
 
 <a href="HMMs">
   <img src="img/toluene.png" alt="toluene button" width="60" />
