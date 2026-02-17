@@ -21,13 +21,7 @@ If your system already satisfies these requirements, you can move directly to ru
 ## Install via Conda
 Confirm that a working Conda installation is available.
 
-Clone the repository, then install HMMER:
-
-```bash
-conda install -c bioconda hmmer
-```
-
-Create the BTEX-HMM environment:
+Create the BTEX-HMM environment and install all dependencies:
 
 ```bash
 conda env create -n btex-hmm -f btex_env.yml
@@ -43,7 +37,7 @@ To run BTEX-HMMs on genomes, inputs can be either a single protein coding file o
 
 ## Example with protein files in test_genomes
 ```bash
-annotate-btex --proteins Toluene-HMM/btexhmm/test_genomes \
+annotate-btex --proteins btexhmm/test_genomes \
               --outdir path/to/output_dir \
               --evalue 1e-5 \
               --cpus 8
