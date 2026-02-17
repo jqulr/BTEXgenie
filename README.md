@@ -41,21 +41,22 @@ conda activate btex-hmm
 ## Usage
 To run BTEX-HMMs on genomes, inputs can be either a single protein coding file or a directory of protein files. 
 
-## Example with genomes in btexhmm/test_genomes
+## Example with protein files in test_genomes
 ```bash
 annotate-btex --proteins-dir Toluene-HMM/btexhmm/test_genomes \
               --outdir path/to/output_dir \
               --evalue 1e-5 \
               --cpus 8
 ```
-Outputs
-`btex-hmm-summary.csv` contains all outputs from running each file against all the HMMs. 
-`hmmscan_output` contains a sub-directory for each file and contains the raw hmmscan output files before and after filtering by GA thresholds. 
+**Outputs**
+- `btex-hmm-summary.csv` contains all outputs from running each file against all the HMMs. 
+- `hmmscan_output` contains a sub-directory for each file and contains the raw hmmscan output files before and after filtering by GA thresholds. 
 
 **Notes:**
-- Default annotate-btex command will only return the hit with the highest score detected for each protein, use `--all-hits-per-protein` to output all the hits detected for each protein.
+- Default annotate-btex command will only return the hit with the highest score detected for each protein, use `--all-hits-per-protein` to output all the hits detected for each protein. 
+- Input directory is expected to contain protein sequences instead of nucleotide sequences. 
 
-## Visualization
+<!-- ## Visualization
 For isolate genomes, BTEX-HMM hits can be rendered on a Circos plot together with a GenBank file describing the genomic regions containing the identified profiles.
 
 Circos requires an etc configuration directory (for image settings, fonts, housekeeping). The `circos.py` helper auto-detects this using the `circos` executable on your PATH:
@@ -63,9 +64,9 @@ Circos requires an etc configuration directory (for image settings, fonts, house
 To obtain the correct etc directory (from a conda install):
 
 ```bash
-ETCDIR=$(dirname "$(dirname "$(which circos)")")/etc
+ETCDIR=$(dirname "$(dirname "$(which circos)")")/etc -->
 ```
-
+<!-- 
 ### Generate Circos Plot
 The `circos.py` helper script builds a complete Circos project for a single genome, using BTEX-HMM hits and optional operon and pathway information.
 
@@ -95,4 +96,4 @@ run-circos \
 - Circos outputs are written to `<outdir>/<genome>_circos_plot/`.
 - The `--pathway-map` TSV supports an optional `color` column (`hmm<TAB>pathway<TAB>color`) to keep pathway colors stable across runs (colors can be `r,g,b` or `#RRGGBB`).
 - If `--pathway-map` is omitted, `btexhmm/data/pathway_map.tsv` (relative to this repo) is used when available.
-- Rendering runs automatically (`circos -conf circos.conf`) unless `--no-render` is provided.
+- Rendering runs automatically (`circos -conf circos.conf`) unless `--no-render` is provided. -->
