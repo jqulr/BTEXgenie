@@ -38,7 +38,7 @@ To run BTEX-HMMs on genomes, input can be either a single protein coding file or
 ## Example with protein files in *test_genomes*
 ```bash
 annotate-btex -p btexhmm/test_genomes \
-              -o **path/to/output_dir** \
+              -o path/to/output_dir \
               --evalue 1e-5 \
               --cpus 8
 ```
