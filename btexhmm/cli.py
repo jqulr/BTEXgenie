@@ -20,8 +20,8 @@ def parse_args():
         "--proteins-dir",
         required=True,
         help=(
-            "Directory containing protein FASTA files "
-            "(for example *.faa, *.fa, *.fasta). Each file is treated as one sample."
+            "Directory containing protein FASTA files, or a single protein FASTA file "
+            "(for example *.faa, *.fa, *.fasta)."
         ),
     )
     p.add_argument(

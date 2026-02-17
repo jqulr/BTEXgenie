@@ -165,8 +165,12 @@ def parse_domtbl(path: Path):
     return rows
 
 
-def find_input_files(proteins_dir: Path) -> list[Path]:
-    return [p for p in sorted(proteins_dir.iterdir()) if p.is_file()]
+def find_input_files(proteins_path: Path) -> list[Path]:
+    if proteins_path.is_file():
+        return [proteins_path]
+    if proteins_path.is_dir():
+        return [p for p in sorted(proteins_path.iterdir()) if p.is_file()]
+    return []
 
 
 def validate_protein_fasta(path: Path) -> tuple[bool, str]:
@@ -322,7 +326,7 @@ def main(argv: list[str] | None = None):
         dest="proteins_dir",
         required=True,
         help=(
-            "Directory containing protein FASTA files (one file = one sample). "
+            "Directory containing protein FASTA files, or a single protein FASTA file. "
             "Supports legacy alias --genomes-dir."
         ),
     )
@@ -382,7 +386,7 @@ def main(argv: list[str] | None = None):
     check_bin("hmmscan")
 
     hmm_lib = Path(args.hmm_lib)
-    proteins_dir = Path(args.proteins_dir)
+    proteins_path = Path(args.proteins_dir)
     ga_by_model = read_ga_thresholds_from_hmm_lib(hmm_lib)
 
     source_desc = ""
@@ -420,10 +424,10 @@ def main(argv: list[str] | None = None):
 
     print(f"[*] tracking {len(model_set)} HMM(s) from {source_desc}: {', '.join(sorted(model_set))}")
 
-    protein_fastas = find_input_files(proteins_dir)
+    protein_fastas = find_input_files(proteins_path)
     if not protein_fastas:
         raise SystemExit(
-            f"[err] no input files found in {proteins_dir}"
+            f"[err] no input files found in {proteins_path}"
         )
     for protein_faa in protein_fastas:
         ok, reason = validate_protein_fasta(protein_faa)
