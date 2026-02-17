@@ -17,6 +17,7 @@ def parse_args():
         )
     )
     p.add_argument(
+        "-p",
         "--proteins",
         dest="proteins",
         required=True,
@@ -26,6 +27,7 @@ def parse_args():
         ),
     )
     p.add_argument(
+        "-o",
         "--outdir",
         required=True,
         help="Output directory for results",

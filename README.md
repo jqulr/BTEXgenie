@@ -21,7 +21,7 @@ If your system already satisfies these requirements, you can move directly to ru
 ## Install via Conda
 Confirm that a working Conda installation is available.
 
-Create the BTEX-HMM environment and install all dependencies:
+Create the BTEX-HMM environment and install all dependencies via *btex_env.yml*:
 
 ```bash
 conda env create -n btex-hmm -f btex_env.yml
@@ -33,12 +33,12 @@ Activate the environment:
 conda activate btex-hmm
 ```
 ## Usage
-To run BTEX-HMMs on genomes, inputs can be either a single protein coding file or a directory of protein files. 
+To run BTEX-HMMs on genomes, input can be either a single protein coding file or a directory of protein files. 
 
-## Example with protein files in test_genomes
+## Example with protein files in *test_genomes*
 ```bash
-annotate-btex --proteins btexhmm/test_genomes \
-              --outdir path/to/output_dir \
+annotate-btex -p btexhmm/test_genomes \
+              -o **path/to/output_dir** \
               --evalue 1e-5 \
               --cpus 8
 ```
