@@ -38,6 +38,22 @@ Activate the environment:
 ```bash
 conda activate btex-hmm
 ```
+## Usage
+To run BTEX-HMMs on genomes, inputs can be either a single protein coding file or a directory of protein files. 
+
+## Example with genomes in btexhmm/test_genomes
+```bash
+annotate-btex --proteins-dir Toluene-HMM/btexhmm/test_genomes \
+              --outdir path/to/output_dir \
+              --evalue 1e-5 \
+              --cpus 8
+```
+Outputs
+`btex-hmm-summary.csv` contains all outputs from running each file against all the HMMs. 
+`hmmscan_output` contains a sub-directory for each file and contains the raw hmmscan output files before and after filtering by GA thresholds. 
+
+**Notes:**
+- Default annotate-btex command will only return the hit with the highest score detected for each protein, use `--all-hits-per-protein` to output all the hits detected for each protein.
 
 ## Visualization
 For isolate genomes, BTEX-HMM hits can be rendered on a Circos plot together with a GenBank file describing the genomic regions containing the identified profiles.
