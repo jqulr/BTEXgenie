@@ -4,7 +4,7 @@
   <img src="img/toluene.png" alt="toluene button" width="60" />
 </a>
 
-This toolkit uses hmmsearch from the HMMER suite to query BTEX-HMM profiles. Ensure HMMER is installed and available on your PATH.
+This toolkit uses hmmscan from the HMMER suite to query BTEX-HMM profiles.
 The following packages are needed for visualization and analysis:
 
 - python 3.11
@@ -16,7 +16,7 @@ The following packages are needed for visualization and analysis:
 - biopython 1.81 or newer
 - circos 0.69 or newer
 
-If your system already satisfies these requirements, you can move directly to running the BTEX-HMM scripts. Otherwise, you may install everything through Conda or pip as shown below.
+If your system already satisfies these requirements, you can move directly to running the BTEX-HMM scripts. Otherwise, you may install everything through Conda as shown below.
 
 ## Install via Conda
 Confirm that a working Conda installation is available.
