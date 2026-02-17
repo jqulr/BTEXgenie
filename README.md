@@ -43,14 +43,14 @@ To run BTEX-HMMs on genomes, inputs can be either a single protein coding file o
 
 ## Example with protein files in test_genomes
 ```bash
-annotate-btex --proteins-dir Toluene-HMM/btexhmm/test_genomes \
+annotate-btex --proteins Toluene-HMM/btexhmm/test_genomes \
               --outdir path/to/output_dir \
               --evalue 1e-5 \
               --cpus 8
 ```
 **Outputs**
-- `btex-hmm-summary.csv` contains all outputs from running each file against all the HMMs. 
-- `hmmscan_output` contains a sub-directory for each file with the raw .domtblout output files produced before and after filtering by GA thresholds. 
+- `btex-hmm-summary.csv` contains the output from running each input file against all the HMMs. 
+- `hmmscan_output` contains a sub-directory for each input file with the raw *.domtblout* output files produced before and after filtering by GA thresholds. 
 
 **Notes:**
 - The `annotate-btex` command expects amino acid FASTA files as input. (If starting from genome assemblies, protein-coding sequences should be predicted first using a gene caller such as Prodigal)

@@ -17,7 +17,8 @@ def parse_args():
         )
     )
     p.add_argument(
-        "--proteins-dir",
+        "--proteins",
+        dest="proteins",
         required=True,
         help=(
             "Directory containing protein FASTA files, or a single protein FASTA file "
@@ -83,14 +84,14 @@ def parse_args():
 def main():
     args = parse_args()
 
-    proteins_dir = Path(args.proteins_dir).resolve()
+    proteins = Path(args.proteins).resolve()
     outdir = Path(args.outdir).resolve()
     outdir.mkdir(parents=True, exist_ok=True)
 
     out_csv = outdir / "btex_hmm_summary.csv"
     hmmscan_argv = [
         "--hmm-lib", str(DEFAULT_HMM_LIB),
-        "--proteins-dir", str(proteins_dir),
+        "--proteins", str(proteins),
         "--out", str(out_csv),
         "--cpus", str(args.cpus),
     ]

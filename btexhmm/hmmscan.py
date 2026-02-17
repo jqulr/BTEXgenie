@@ -321,9 +321,10 @@ def main(argv: list[str] | None = None):
     ap.add_argument("--hmm-dir", required=False, help="directory with individual *.hmm (for model name list; optional if --hmm-lib contains names)")
     ap.add_argument("--hmm-lib", required=True, help="concatenated HMM library for hmmscan")
     ap.add_argument(
+        "--proteins",
         "--proteins-dir",
         "--genomes-dir",
-        dest="proteins_dir",
+        dest="proteins",
         required=True,
         help=(
             "Directory containing protein FASTA files, or a single protein FASTA file. "
@@ -386,7 +387,7 @@ def main(argv: list[str] | None = None):
     check_bin("hmmscan")
 
     hmm_lib = Path(args.hmm_lib)
-    proteins_path = Path(args.proteins_dir)
+    proteins_path = Path(args.proteins)
     ga_by_model = read_ga_thresholds_from_hmm_lib(hmm_lib)
 
     source_desc = ""
