@@ -17,6 +17,7 @@ dependencies = [
 [project.scripts]
 annotate-btex = "btexhmm.cli:main"
 run-circos = "btexhmm.circos:main"
+vis-btex = "btexhmm.vis_cli:main"
 
 [tool.setuptools]
 
