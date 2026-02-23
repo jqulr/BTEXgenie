@@ -12,7 +12,7 @@
 #   --sample all \
 #   --ko-map /home/juneq/hmm/archetypes/hmm_cutoffs/btex_ko_list.tsv \
 #   --pathways 00642,00623,00622,00362 \
-#   --outdir /home/juneq/BTEX_test/test_output_2/pathway_figures
+#   --outdir /home/juneq/BTEX_test/vis-btex-outputs
 
 # Rscript /home/juneq/hmm/scripts/kegg/plot_kegg_pathways_2.R \
 #   --hmmscan /home/juneq/hmm/validation_genomes/atested/abtested_results/hmmscan_summary_all_hits_260216_BTEX.csv \
@@ -158,7 +158,7 @@ urlenc_spaces_newlines_only <- function(x) {
   x
 }
 
-build_multi_query_btex_outline_split <- function(pathway_kos, ko_universe, kos_by_sample, sample_colors, white_kos = character(0)) {
+build_multi_query_btex_outline_split <- function(pathway_kos, ko_universe, kos_by_sample, sample_colors, pathway_ko_groups = list(), white_kos = character(0)) {
   samples <- names(sample_colors)
   pathway_kos <- unique(pathway_kos[grepl("^K[0-9]{5}$", pathway_kos)])
   ko_universe <- unique(ko_universe[grepl("^K[0-9]{5}$", ko_universe)])
@@ -169,24 +169,43 @@ build_multi_query_btex_outline_split <- function(pathway_kos, ko_universe, kos_b
   lines <- character(0)
   if (length(white_kos) > 0) {
     lines <- c(lines, vapply(white_kos, function(ko) {
-      paste0("ko:", ko, " #FFFFFF,#000000")
+      paste0("ko:", ko, " #FFFFFF")
     }, character(1)))
   }
 
-  for (ko in target_kos) {
-    present_samples <- samples[vapply(samples, function(s) ko %in% kos_by_sample[[s]], logical(1))]
-    if (length(present_samples) > 0) {
-      cols <- paste0(unname(sample_colors[present_samples]), ",#FF0000")
-      lines <- c(lines, paste(c(paste0("ko:", ko), cols), collapse = " "))
-    } else {
-      lines <- c(lines, paste0("ko:", ko, " #FFFFFF,#FF0000"))
+  # Color by KGML KO groups (pathway boxes): if any KO in a box is present,
+  # color the whole box as present; otherwise white. Keep red border for BTEX KOs.
+  group_keys <- character(0)
+  target_groups <- list()
+  if (length(pathway_ko_groups) > 0) {
+    for (g in pathway_ko_groups) {
+      gg <- sort(unique(intersect(g, target_kos)))
+      if (length(gg) == 0) next
+      k <- paste(gg, collapse = "|")
+      if (k %in% group_keys) next
+      group_keys <- c(group_keys, k)
+      target_groups <- c(target_groups, list(gg))
     }
+  }
+  covered <- if (length(target_groups) > 0) unique(unlist(target_groups, use.names = FALSE)) else character(0)
+  for (ko in setdiff(target_kos, covered)) target_groups <- c(target_groups, list(ko))
+
+  for (grp in target_groups) {
+    present_samples <- samples[vapply(samples, function(s) any(grp %in% kos_by_sample[[s]]), logical(1))]
+    cols <- if (length(present_samples) > 0) {
+      # Emit one "fill,border" token per present sample so KEGG renders split fills
+      # while keeping red borders.
+      paste(paste0(unname(sample_colors[present_samples]), ",#FF0000"), collapse = " ")
+    } else {
+      "#FFFFFF,#FF0000"
+    }
+    lines <- c(lines, vapply(grp, function(ko) paste0("ko:", ko, " ", cols), character(1)))
   }
 
   urlenc_spaces_newlines_only(paste(lines, collapse = "\n"))
 }
 
-build_multi_query_btex_outline_single <- function(pathway_kos, ko_universe, sample_kos, sample_color, white_kos = character(0)) {
+build_multi_query_btex_outline_single <- function(pathway_kos, ko_universe, sample_kos, sample_color, pathway_ko_groups = list(), white_kos = character(0)) {
   pathway_kos <- unique(pathway_kos[grepl("^K[0-9]{5}$", pathway_kos)])
   ko_universe <- unique(ko_universe[grepl("^K[0-9]{5}$", ko_universe)])
   target_kos <- sort(intersect(pathway_kos, ko_universe))
@@ -194,21 +213,32 @@ build_multi_query_btex_outline_single <- function(pathway_kos, ko_universe, samp
   if (length(target_kos) == 0 && length(white_kos) == 0) return("")
 
   sample_kos <- unique(sample_kos[grepl("^K[0-9]{5}$", sample_kos)])
-  sample_color_red <- paste0(sample_color, ",#FF0000")
   lines <- character(0)
 
   if (length(white_kos) > 0) {
     lines <- c(lines, vapply(white_kos, function(ko) {
-      paste0("ko:", ko, " #FFFFFF,#000000")
+      paste0("ko:", ko, " #FFFFFF")
     }, character(1)))
   }
 
-  for (ko in target_kos) {
-    if (ko %in% sample_kos) {
-      lines <- c(lines, paste0("ko:", ko, " ", sample_color_red))
-    } else {
-      lines <- c(lines, paste0("ko:", ko, " #FFFFFF,#FF0000"))
+  group_keys <- character(0)
+  target_groups <- list()
+  if (length(pathway_ko_groups) > 0) {
+    for (g in pathway_ko_groups) {
+      gg <- sort(unique(intersect(g, target_kos)))
+      if (length(gg) == 0) next
+      k <- paste(gg, collapse = "|")
+      if (k %in% group_keys) next
+      group_keys <- c(group_keys, k)
+      target_groups <- c(target_groups, list(gg))
     }
+  }
+  covered <- if (length(target_groups) > 0) unique(unlist(target_groups, use.names = FALSE)) else character(0)
+  for (ko in setdiff(target_kos, covered)) target_groups <- c(target_groups, list(ko))
+
+  for (grp in target_groups) {
+    cols <- if (any(grp %in% sample_kos)) paste0(sample_color, ",#FF0000") else "#FFFFFF,#FF0000"
+    lines <- c(lines, vapply(grp, function(ko) paste0("ko:", ko, " ", cols), character(1)))
   }
 
   urlenc_spaces_newlines_only(paste(lines, collapse = "\n"))
@@ -285,9 +315,7 @@ cat("Generated KEGG show_pathway Links\n=================================\n", fi
 
 if (!is.null(opt$sample) && tolower(opt$sample) != "all") {
   samp <- opt$sample
-  if (!samp %in% names(kos_by_sample)) {
-    stop("Sample '", samp, "' not found in hmmscan file. Please check the sample name and try again.")
-  }
+  if (!samp %in% names(kos_by_sample)) stop("Requested --sample not found in hmmscan CSV: ", samp)
   run_samples <- c(samp)
 } else {
   all_samples <- sort(names(kos_by_sample))
@@ -301,7 +329,6 @@ if (!is.null(opt$sample) && tolower(opt$sample) != "all") {
     run_samples <- all_samples
   }
 }
-message("Generating pathway visualizations on KEGG", paste(pids, collapse = ","), " maps.")
 
 sample_colors <- get_sample_colors(run_samples)
 if (length(run_samples) == 1) {
@@ -313,6 +340,7 @@ write_sample_color_legend(legend_path, sample_colors)
 for (pid in pids) {
   kos_by_sample_run <- kos_by_sample[run_samples]
   pathway_kos <- get_pathway_kos_from_kgml(pid)
+  pathway_ko_groups <- get_pathway_ko_groups_from_kgml(pid)
   target_kos <- if (length(pathway_kos) > 0) pathway_kos else ko_universe
 
   if (!is.null(opt$sample) && tolower(opt$sample) != "all") {
@@ -320,7 +348,8 @@ for (pid in pids) {
       pathway_kos = target_kos,
       ko_universe = ko_universe,
       sample_kos = kos_by_sample[[run_samples[1]]],
-      sample_color = sample_colors[[run_samples[1]]]
+      sample_color = sample_colors[[run_samples[1]]],
+      pathway_ko_groups = pathway_ko_groups
     )
 
     if (!nzchar(mq)) {
@@ -340,7 +369,8 @@ for (pid in pids) {
       pathway_kos = target_kos,
       ko_universe = ko_universe,
       kos_by_sample = kos_by_sample_run,
-      sample_colors = sample_colors
+      sample_colors = sample_colors,
+      pathway_ko_groups = pathway_ko_groups
     )
 
     if (!nzchar(mq)) {
