@@ -50,6 +50,28 @@ annotate-btex -p btexhmm/test_genomes \
 - The `annotate-btex` command expects amino acid FASTA files as input. (If starting from genome assemblies, protein-coding sequences should be predicted first using a gene caller such as Prodigal)
 - By default, only single best-scoring HMM hit for each protein-coding region is reported. To retain all HMM hits per protein-coding region, user should enable the `--all-hits-per-protein` option. With this flag, multiple matches to different HMMs may be reported for the same protein.
 
+## Visualizations
+BTEX-HMM supports visualization of detected genes on Circos plot or KEGG pathway modules. 
+
+**For visualization of hits on KEGG pathways:**
+
+```bash
+vis-btex --hmmscan /path/to/output_dir/btex_hmm_summary.csv \
+         -s all \
+         -o /path/to/vis-btex-outputs
+```
+ An example annotated pathway generated via the KEGG URL is available [here](https://www.kegg.jp/kegg-bin/show_pathway?map=map00623&multi_query=ko:K03268%20%23FFFFFF,%23FF0000%0Ako:K03381%20%23FF7F00,%23FF0000%0Ako:K07540%20%23377EB8,%23FF0000%0Ako:K15757%20%23FFFFFF,%23FF0000%0Ako:K15758%20%23FFFFFF,%23FF0000%0Ako:K15760%20%23377EB8,%23FF0000%0Ako:K15761%20%23FFFFFF,%23FF0000%0Ako:K15762%20%23377EB8,%23FF0000%0Ako:K15763%20%23377EB8,%23FF0000%0Ako:K15764%20%23377EB8,%23FF0000%0Ako:K15765%20%23377EB8,%23FF0000%0Ako:K16242%20%23377EB8,%23FF0000%0Ako:K16243%20%23377EB8,%23FF0000%0Ako:K16244%20%23FFFFFF,%23FF0000%0Ako:K16245%20%23FFFFFF,%23FF0000%0Ako:K16246%20%23377EB8,%23FF0000%0Ako:K16268%20%23E41A1C,%23FF0000%0Ako:K16269%20%23FFFFFF,%23FF0000%0Ako:K18089%20%23FFFFFF,%23FF0000%0Ako:K18090%20%23FFFFFF,%23FF0000).
+
+**For visualization of hits on Circos:**
+
+```bash
+run-circos \
+  --hits /home/juneq/Toluene_test/main_output/btex_hmm_summary.csv \
+  --outdir /home/juneq/Toluene_test/main_output \
+  --dna /home/juneq/Toluene_test/fastas/aromatoleum_aromaticum_ebn1.fasta \
+  --genome "aromatoleum_aromaticum_ebn1" 
+```
+
 <!--## Visualization
 For isolate genomes, BTEX-HMM hits can be rendered on a Circos plot together with a GenBank file describing the genomic regions containing the identified profiles.
 

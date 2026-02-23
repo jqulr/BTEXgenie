@@ -5,6 +5,7 @@ from pathlib import Path
 
 
 DEFAULT_PATHWAYS = "00642,00623,00622,00362"
+DEFAULT_KO_MAP = Path(__file__).resolve().parent / "data" / "btex_to_KO_map.tsv"
 
 
 def parse_args():
@@ -23,12 +24,6 @@ def parse_args():
         "--sample",
         default="all",
         help="Sample name from hmmscan CSV, or 'all' (default: all).",
-    )
-    p.add_argument(
-        "--ko-map",
-        dest="ko_map",
-        required=True,
-        help="Path to KO mapping TSV.",
     )
     p.add_argument(
         "--pathways",
@@ -57,13 +52,13 @@ def main():
         raise SystemExit(f"Visualization script not found: {vis_script}")
 
     hmmscan = Path(args.hmmscan).expanduser().resolve()
-    ko_map = Path(args.ko_map).expanduser().resolve()
+    ko_map = DEFAULT_KO_MAP.resolve()
     outdir = Path(args.outdir).expanduser().resolve()
 
     if not hmmscan.exists():
         raise SystemExit(f"--hmmscan file not found: {hmmscan}")
     if not ko_map.exists():
-        raise SystemExit(f"--ko-map file not found: {ko_map}")
+        raise SystemExit(f"Default KO map file not found: {ko_map}")
 
     outdir.mkdir(parents=True, exist_ok=True)
 
@@ -81,5 +76,7 @@ def main():
         "--outdir",
         str(outdir),
     ]
-    subprocess.run(cmd, check=True)
-
+    try:
+        subprocess.run(cmd, check=True)
+    except subprocess.CalledProcessError as exc:
+        raise SystemExit(exc.returncode)

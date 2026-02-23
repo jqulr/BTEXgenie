@@ -285,7 +285,9 @@ cat("Generated KEGG show_pathway Links\n=================================\n", fi
 
 if (!is.null(opt$sample) && tolower(opt$sample) != "all") {
   samp <- opt$sample
-  if (!samp %in% names(kos_by_sample)) stop("Requested --sample not found in hmmscan CSV: ", samp)
+  if (!samp %in% names(kos_by_sample)) {
+    stop("Sample '", samp, "' not found in hmmscan file. Please check the sample name and try again.")
+  }
   run_samples <- c(samp)
 } else {
   all_samples <- sort(names(kos_by_sample))

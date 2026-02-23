@@ -1,0 +1,34 @@
+KO	Pathway	Gene	Description
+K03268	Toluene Dioxygenase	todC1_bedC1	Large subunit
+K16268	Toluene Dioxygenase	todC2_bedC2	Small subunit
+K16269	Toluene Dioxygenase	todD	Ferredoxin
+K18089	Toluene Dioxygenase	todB	Ferredoxin reductase
+K18090	Toluene Dioxygenase	todA	Oxidoreductase
+K16243	Toluene 2-Monooxygenase	tomA1	Alpha subunit
+K16244	Toluene 2-Monooxygenase	tomA2	Protein C
+K16242	Toluene 2-Monooxygenase	tomA3	GroEL-like chaperone
+K16245	Toluene 2-Monooxygenase	tomA4	Effector protein
+K16246	Toluene 2-Monooxygenase	tomA5	Oxidoreductase
+K15760	Toluene 3-Monooxygenase	tmoA_tbuA1_touA	Hydroxylase Alpha
+K15761	Toluene 3-Monooxygenase	tmoB_tbuU_touB	Hydroxylase Gamma
+K15762	Toluene 3-Monooxygenase	tmoC_tbuB_touC	Ferredoxin
+K15763	Toluene 3-Monooxygenase	tmoD_tbuV_touD	Effector protein
+K15764	Toluene 3-Monooxygenase	tmoE_tbuA2	Hydroxylase beta
+K15765	Toluene 3-Monooxygenase	tmoF_tbuC_touF	Ferredoxin
+K15757	Xylene Monooxygenase	xylM	Alpha subunit
+K15758	Xylene Monooxygenase	xylA	Toluene methyl-monooxygenase
+K00446	Catechol 2,3-Dioxygenase	xylE	Common meta-cleavage enzyme
+K03381	Catechol 1,2-Dioxygenase	catA	Common meta-cleavage enzyme
+K14579	Ethylbenzene Dioxygenase	ndoB	Oxygenase
+K14580	Ethylbenzene Dioxygenase	ndoC	Structural
+K14748	Ethylbenzene Dioxygenase	edoA1	Oxygenase
+K14749	Ethylbenzene Dioxygenase	edoA2	Structural
+K07540	Benzylsuccinate Synthase	bssA	Synthase
+K07540	Benzylsuccinate Synthase	bssB	Synthase
+K10700	Ethylbenzene Dehydrogenase	ebdA	Dehydrogenase
+K17048	Ethylbenzene Dehydrogenase	ebdB	Dehydrogenase
+K17049	Ethylbenzene Dehydrogenase	ebdC	Dehydrogenase
+K04114	Ethylbenzene Dehydrogenase	bcrA_type_I	Reductase
+K19515	Ethylbenzene Dehydrogenase	bcrA_type_II	Reductase
+
+
