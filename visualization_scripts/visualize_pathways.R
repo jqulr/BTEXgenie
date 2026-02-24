@@ -1,28 +1,10 @@
 #!/usr/bin/env Rscript
 
-# plot_kegg_pathways_links_only.R
+# Build KEGG `show_pathway` URLs from hmmscan hits.
+# This script only writes links to KEGG maps and tsv files for inspection, it does not download images.
 #
-# Purpose
-# Generate KEGG show_pathway URLs that color KOs from hmmscan hits.
-# This version DOES NOT download PNGs or do any browser/screenshot capture.
-#
-# Usage
-# Rscript /home/juneq/hmm/scripts/kegg/plot_kegg_pathways_2.R \
-#   --hmmscan /home/juneq/BTEX_test/test_output_2/btex_hmm_summary.csv \
-#   --sample all \
-#   --ko-map /home/juneq/hmm/archetypes/hmm_cutoffs/btex_ko_list.tsv \
-#   --pathways 00642,00623,00622,00362 \
-#   --outdir /home/juneq/BTEX_test/vis-btex-outputs
 
-# Rscript /home/juneq/hmm/scripts/kegg/plot_kegg_pathways_2.R \
-#   --hmmscan /home/juneq/hmm/validation_genomes/atested/abtested_results/hmmscan_summary_all_hits_260216_BTEX.csv \
-#   --sample burkholderia_vietnamiensis_g4 \
-#   --ko-map /home/juneq/hmm/archetypes/hmm_cutoffs/btex_ko_list.tsv \
-#   --pathways 00623,00642,00622,00362 \
-#   --outdir /home/juneq/hmm/validation_genomes/atested/genomes/burkholderia_vietnamiensis_g4__GCA_000016205.1/pathview_outputs
-
-
-# Outputs in --outdir
+# Output directory contains:
 # KEGG_MAP_LINKS.txt
 # sample_color_legend.tsv
 # split_color_inputs.<pid>.tsv
@@ -149,7 +131,7 @@ get_sample_colors <- function(samples) {
 }
 
 urlenc_spaces_newlines_only <- function(x) {
-  # Keep KEGG token syntax (ko:Kxxxxx) intact; only encode characters needed in query payload.
+  # Keep `ko:Kxxxxx` intact; encode only characters that break query payloads.
   x <- gsub("%", "%25", x, fixed = TRUE)
   x <- gsub("#", "%23", x, fixed = TRUE)
   x <- gsub("\r\n", "\n", x, fixed = TRUE)
@@ -173,8 +155,8 @@ build_multi_query_btex_outline_split <- function(pathway_kos, ko_universe, kos_b
     }, character(1)))
   }
 
-  # Color by KGML KO groups (pathway boxes): if any KO in a box is present,
-  # color the whole box as present; otherwise white. Keep red border for BTEX KOs.
+  # Color by KGML KO groups (pathway boxes). If any KO in a box is present,
+  # color the full box as present when one KO is present, otherwise leave it white. Keep red borders for BTEX KOs.
   group_keys <- character(0)
   target_groups <- list()
   if (length(pathway_ko_groups) > 0) {
@@ -193,8 +175,7 @@ build_multi_query_btex_outline_split <- function(pathway_kos, ko_universe, kos_b
   for (grp in target_groups) {
     present_samples <- samples[vapply(samples, function(s) any(grp %in% kos_by_sample[[s]]), logical(1))]
     cols <- if (length(present_samples) > 0) {
-      # Emit one "fill,border" token per present sample so KEGG renders split fills
-      # while keeping red borders.
+      # One "fill,border" token per present sample so KEGG draws split fills.
       paste(paste0(unname(sample_colors[present_samples]), ",#FF0000"), collapse = " ")
     } else {
       "#FFFFFF,#FF0000"
@@ -295,7 +276,7 @@ hmm_col    <- names(hm)[hmm_col_idx]
 hits_col   <- names(hm)[hits_col_idx]
 
 kos_by_sample <- lapply(split(hm, hm[[sample_col]]), function(df) {
-  # Only map KOs from HMMs with observed hits in this sample.
+  # Map KOs only for HMMs with >0 hits in this sample.
   hit_vals <- suppressWarnings(as.numeric(df[[hits_col]]))
   df_hits <- df[!is.na(hit_vals) & hit_vals > 0, , drop = FALSE]
 
