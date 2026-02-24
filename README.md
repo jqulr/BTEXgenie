@@ -82,6 +82,12 @@ run-circos \
   --genome "Aromatoleum_bremense_PbN1T" 
 ```
 
+**Input:**
+- `run-circos` takes btex_hmm_summary.csv together with the genome sequence file for a single sample. In the example above, the genome sequence file for Aromatoleum bremense PbN1T in the test_genomes folder is used.
+
+**Output:**
+- `run-circos` generates .png and .svg Circos plots, along with the Circos configuration files and supporting files used to produce the plots.
+
 <!--## Visualization
 For isolate genomes, BTEX-HMM hits can be rendered on a Circos plot together with a GenBank file describing the genomic regions containing the identified profiles.
 
