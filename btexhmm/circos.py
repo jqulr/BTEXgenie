@@ -18,13 +18,13 @@ MODIFIED VERSION:
 Usage example
 -------------
 usage:
-python /home/juneq/Toluene-HMM/btexhmm/circos.py \
-  --hits /home/juneq/Toluene_test/main_output/btex_hmm_summary.csv \
-  --outdir /home/juneq/Toluene_test/main_output \
-  --dna /home/juneq/Toluene_test/fastas/aromatoleum_aromaticum_ebn1.fasta \
-  --genome "aromatoleum_aromaticum_ebn1" 
+python /home/juneq/BTEX-HMMs/btexhmm/circos.py \
+  --hits /home/juneq/BTEX_test/test_output_2/btex_hmm_summary.csv \
+  --outdir /home/juneq/BTEX_test/test_output_circos \
+  --dna /home/juneq/BTEX-HMMs/btexhmm/test_genomes/Aromatoleum_bremense_PbN1T.fna \
+  --genome "Aromatoleum_bremense_PbN1T" 
 
-    --operon \
+# TODO: check operon functionality 
   --operon-defs /home/juneq/hmm/archetypes/hmm_cutoffs/operons_dist.tsv \
 
 If --contig-lengths is omitted, supply --genomes-dir (and optionally --fasta-glob)
@@ -309,7 +309,7 @@ def normalize_contig_id(token):
     name = token.strip().lstrip(">").strip()
     if " #" in name: name = name.split(" #", 1)[0].strip()
     if "|" in name: name = name.split("|")[-1]
-    return name.split("_", 1)[0].strip()
+    return name.strip()
 
 def parse_hit_headers(sample, hmm, headers):
     out = []
@@ -318,6 +318,10 @@ def parse_hit_headers(sample, hmm, headers):
         if not raw.strip(): continue
         left = raw.split(" #", 1)[0] if " #" in raw else raw
         contig = normalize_contig_id(left)
+        # Prodigal-style headers append an ORF index as a trailing "_<number>"
+        # to the contig name (e.g., NZ_CP059467.1_1976). Remove only that suffix.
+        if " #" in raw:
+            contig = re.sub(r"_\d+$", "", contig)
         if not contig: continue
         m = re.findall(r"#\s*(\d+)", raw)
         if len(m) < 2: m = re.findall(r"\b(\d+)\b", raw)
