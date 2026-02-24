@@ -76,10 +76,10 @@ vis-btex --hmmscan /path/to/output_dir/btex_hmm_summary.csv \
 
 ```bash
 run-circos \
-  --hits /home/juneq/Toluene_test/main_output/btex_hmm_summary.csv \
-  --outdir /home/juneq/Toluene_test/main_output \
-  --dna /home/juneq/Toluene_test/fastas/aromatoleum_aromaticum_ebn1.fasta \
-  --genome "aromatoleum_aromaticum_ebn1" 
+  --hits /path/to/btex_hmm_summary.csv \
+  --outdir /path/to/output_dir \
+  --dna /test_genomes/Aromatoleum_bremense_PbN1T.fna \
+  --genome "Aromatoleum_bremense_PbN1T" 
 ```
 
 <!--## Visualization

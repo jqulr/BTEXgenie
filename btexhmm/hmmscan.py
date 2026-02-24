@@ -3,8 +3,9 @@ import argparse, csv, re, subprocess, sys
 from pathlib import Path
 from collections import defaultdict
 
-# Output columns:
-#   sample,hmm,hits,scores,ievalues,cutoff_used,total_genes,hit_headers
+# This script runs hmmscan on all the HMMs with input protein-coding files and outputs detailed TSV 
+# summary with columns: sample, hmm, hits, scores, ievalues, cutoff_used, total_genes, hit_headers. 
+# 
 #
 # Example:
 # python /home/juneq/Toluene-HMM/btexhmm/hmmscan.py \
@@ -430,12 +431,16 @@ def main(argv: list[str] | None = None):
         raise SystemExit(
             f"[err] no input files found in {proteins_path}"
         )
+    valid_protein_fastas = []
     for protein_faa in protein_fastas:
         ok, reason = validate_protein_fasta(protein_faa)
         if not ok:
-            print(f"[err] {protein_faa.name}")
-            print(f"[err] {protein_faa.name} is not a proper protein sequence file: {reason}")
-            raise SystemExit(1)
+            print(f"[warn] skipping {protein_faa.name}: not a proper protein sequence file ({reason})")
+            continue
+        valid_protein_fastas.append(protein_faa)
+
+    if not valid_protein_fastas:
+        raise SystemExit("[err] no valid protein FASTA inputs found after validation")
 
     # Load full cutoffs table (may include many models); use only for selected models
     cutmap_all = load_cutoffs(Path(args.cutoffs)) if args.cutoffs else {}
@@ -455,7 +460,7 @@ def main(argv: list[str] | None = None):
     samples: list[str] = []
 
     # Phase 1: ensure per-sample domtbl exists (one hmmscan per sample)
-    for protein_faa in protein_fastas:
+    for protein_faa in valid_protein_fastas:
         sample = protein_faa.stem
         samples.append(sample)
         sample_parent[sample] = protein_faa.parent
