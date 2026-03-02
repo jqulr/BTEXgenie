@@ -291,6 +291,7 @@ def find_operon_instances(features, operon_defs_path):
 def write_colors_conf(path, cmap):
     with open(path, "w") as fh:
         fh.write("<colors>\n")
+        fh.write("  lightblue = 173,216,230\n")
         # MODIFIED: Use cmap.values() to handle cases where multiple HMMs share a color name
         # This prevents duplicate color name definitions in the conf file.
         unique_colors = {val[0]: val[1] for val in cmap.values()}
@@ -306,7 +307,7 @@ def write_hmm_colors_tsv(path, cmap):
 def write_karyotype(path, contig_lengths):
     with open(path, "w") as fh:
         for contig, length in contig_lengths.items():
-            fh.write(f"chr - {contig} {contig} 0 {length} grey\n")
+            fh.write(f"chr - {contig} {contig} 0 {length} lightblue\n")
 
 def write_genes(path, features, cmap):
     with open(path, "w") as fh:
@@ -486,13 +487,15 @@ chromosomes_units = 1000000
   <spacing>
     default = 0.005r
   </spacing>
+  angle_offset = -90
   radius    = {ideogram_radius}r
   thickness = 40p
   fill      = yes
   show_label       = yes
   label_font       = default
-  label_radius     = dims(ideogram,radius) + 0.075r
-  label_size       = 30
+  label_parallel   = no
+  label_radius     = dims(ideogram,radius) + 0.12r
+  label_size       = 24
 </ideogram>
 show_ticks          = yes
 show_tick_labels    = yes
