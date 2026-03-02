@@ -6,26 +6,23 @@ Build one Circos project for a single genome (sample) so that:
 - all contigs from that genome appear on the SAME plot (unless --only-hit-contigs),
 - each HMM subunit is drawn in ONE consistent (lowercase) color,
 - only HMMs with >=1 hit for that genome are included,
-- colors may be user-specified via --hmm-colors TSV or auto-assigned.
+- colors are taken from the bundled pathway map TSV.
 
 MODIFIED VERSION:
 - In --operon mode, calculates operon completeness for each potential operon instance.
 - Creates multiple, concentric tracks (rings) in the plot.
 - The most complete operons are drawn on the outermost track.
 - Less complete operons are drawn on progressively smaller, inner tracks.
-- NEW: Can group HMM colors by pathway using --pathway-map.
+- Colors can be grouped by pathway using the bundled default pathway map when present.
 
 Usage example
 -------------
 usage:
-python /home/juneq/BTEX-HMMs/btexhmm/circos.py \
-  --hits /home/juneq/BTEX_test/test_output_2/btex_hmm_summary.csv \
+python /home/juneq/BTEX-HMMs/visualization_scripts/circos.py \
+  --hmmscan /home/juneq/BTEX_test/test_output_2/btex_hmm_summary.csv \
   --outdir /home/juneq/BTEX_test/test_output_circos \
   --dna /home/juneq/BTEX-HMMs/btexhmm/test_genomes/Aromatoleum_bremense_PbN1T.fna \
-  --genome "Aromatoleum_bremense_PbN1T" 
-
-# TODO: check operon functionality 
-  --operon-defs /home/juneq/hmm/archetypes/hmm_cutoffs/operons_dist.tsv \
+  --sample "Aromatoleum_bremense_PbN1T"
 
 If --contig-lengths is omitted, supply --genomes-dir (and optionally --fasta-glob)
 to auto-write contig_length.tsv under the Circos output directory using find_contig_length logic.
@@ -33,31 +30,22 @@ to auto-write contig_length.tsv under the Circos output directory using find_con
 The Circos etc directory is auto-detected using the circos executable on PATH,
 following: ETCDIR=$(dirname "$(dirname "$(which circos)")")/etc
 
-For stable pathway coloring across runs, supply a pathway map TSV with columns:
-  hmm<TAB>pathway<TAB>color
-The color column is optional; when present, all HMMs in that pathway share the
-specified color (hex #RRGGBB or r,g,b).
+For stable pathway coloring across runs, the script auto-uses
+`btexhmm/data/pathway_map.tsv` when present.
 
-If --pathway-map is not provided, circos.py will auto-use btexhmm/data/pathway_map.tsv
-when present (relative to this script).
-
-By default, the script renders the plot via `circos -conf circos.conf` in the output
-directory; use --no-render to skip rendering.
+The script renders the plot via `circos -conf circos.conf` in the output directory.
 """
-import argparse
 import csv
 import os
 import re
-import hashlib
 import sys
 import shutil
 import subprocess
-import itertools
 from pathlib import Path
 from collections import OrderedDict, defaultdict
 
 try:
-    from btexhmm.find_contig_length import (
+    from visualization_scripts.find_contig_length import (
         FIELDNAMES as CONTIG_TSV_FIELDS,
         read_fai,
         read_fasta_lengths,
@@ -78,53 +66,6 @@ try:
 except ImportError:
     print("[ERROR] Biopython is required. Please install it: pip install biopython", file=sys.stderr)
     sys.exit(1)
-
-
-# Auto palette (rgb triplets as strings)
-AUTO_RGBS = [
-    "0,114,178","213,94,0","0,158,115","204,121,167","86,180,233","230,159,0",
-    "240,228,66","173,73,74","0,0,0","102,0,204","0,153,136","255,127,14",
-    "31,119,180","44,160,44","214,39,40","148,103,189","140,86,75","227,119,194",
-    "127,127,127","188,189,34","23,190,207","255,152,150","197,176,213","196,156,148"
-]
-
-def parse_args():
-    ap = argparse.ArgumentParser(description="Generate Circos plot files for HMM hits on a single genome.")
-    ap.add_argument(
-        "--hits",
-        required=True,
-        help="CSV (btex_hmm_summary.csv): sample,hmm,hits,total_genes,hit_headers from hmmsearch.py.",
-    )
-    ap.add_argument(
-        "--contig-lengths",
-        help=(
-            "TSV: sample<TAB>contig<TAB>length. "
-            "If omitted, contig_length.tsv is generated under the Circos output dir using --dna."
-        ),
-    )
-    ap.add_argument("--outdir", required=True, help="Output root dir")
-    ap.add_argument("--genome", required=True, help="Sample/genome name to render")
-    ap.add_argument("--hmm-colors", help="Optional TSV: hmm<TAB>color (rgb 'r,g,b' or hex '#RRGGBB')")
-    ap.add_argument("--only-hit-contigs", action="store_true", help="Include only contigs that have >=1 hit")
-    ap.add_argument("--operon", action="store_true", help="Switch to operon-centric plotting mode with layered tracks for completeness.")
-    ap.add_argument("--operon-defs", help="Required if --operon is used. TSV with header: operon_id,members,max_span_bp")
-    ap.add_argument("--no-render", action="store_true", help="Skip running circos -conf circos.conf after generating the project.")
-    ap.add_argument(
-        "--dna",
-        help=(
-            "Path to the genome nucleotide FASTA (.fna/.fasta). "
-            "Used to generate contig lengths when --contig-lengths is omitted and to populate GenBank sequences."
-        ),
-    )
-    # NEW: Argument for the pathway map file.
-    ap.add_argument(
-        "--pathway-map",
-        help=(
-            "Optional TSV: hmm<TAB>pathway[<TAB>color]. "
-            "Groups HMMs by pathway for coloring; a pathway color column can be supplied to keep colors stable across runs."
-        ),
-    )
-    return ap.parse_args()
 
 def find_circos_etc_dir() -> Path:
     circos_exe = shutil.which("circos")
@@ -161,80 +102,24 @@ def normalize_color_token(token):
     if t.startswith("#"): return hex_to_rgb_str(t)
     raise ValueError(f"Unsupported color token: {token}")
 
-def hashed_rgb(name):
-    h = hashlib.md5(name.encode("utf-8")).hexdigest()
-    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
-    def bump(x): return min(255, int(0.6*255 + 0.4*x))
-    return f"{bump(r)},{bump(g)},{bump(b)}"
-
-# MODIFIED: This function is rewritten to handle pathway-based and case-insensitive coloring.
-def build_color_map(hmms_with_hits, pathway_map, pathway_colors, user_colors_path=None):
+def build_color_map(hmms_with_hits, pathway_map, pathway_colors):
     """
-    Builds a color map for HMMs with a new priority order and case-insensitivity:
-    1. User-specified colors from --hmm-colors (highest priority).
-    2. Pathway-based colors from --pathway-map.
-    3. Unique auto-assigned colors for any remaining HMMs (fallback).
+    Builds an HMM -> color map using only the bundled pathway map color column.
     """
-    # 1. Load user-specified colors with lowercase HMM keys for case-insensitive matching.
-    user_rgb_lower = {}
-    if user_colors_path:
-        with open(user_colors_path, newline="") as fh:
-            rdr = csv.DictReader(fh, delimiter="\t")
-            for row in rdr:
-                user_rgb_lower[row['hmm'].strip().lower()] = normalize_color_token(row['color'])
-
-    # 2. Create a lowercase version of the pathway map for consistent matching.
     pathway_map_lower = {k.lower(): v for k, v in pathway_map.items()}
     pathway_colors_lower = {k.lower(): normalize_color_token(v) for k, v in pathway_colors.items()}
-
-    # 3. Determine the set of pathways and un-mapped HMMs to assign colors to.
-    entities_to_color = set()
-    for hmm in hmms_with_hits:
-        hmm_lower = hmm.lower() # Use a lowercase version for lookups
-        if hmm_lower in user_rgb_lower:
-            continue  # Skip, this color is already defined by the user.
-        
-        pathway = pathway_map_lower.get(hmm_lower)
-        if pathway:
-            entities_to_color.add(pathway)
-        else:
-            entities_to_color.add(hmm) # Fallback: the entity is the HMM itself.
-
-    # 4. Assign a color to each entity (pathway name or individual HMM name).
-    auto_iter = iter(AUTO_RGBS)
-    entity_color_map = {
-        p_lower: (sanitize_color_name(p_lower), rgb) for p_lower, rgb in pathway_colors_lower.items()
-    }
-    for entity in sorted(list(entities_to_color), key=lambda x: x.lower()):
-        key = entity.lower()
-        if key in entity_color_map:
-            continue
-        try:
-            rgb = next(auto_iter)
-        except StopIteration:
-            rgb = hashed_rgb(entity)
-        
-        # Color names are also made from lowercase entity names for consistency
-        color_name = sanitize_color_name(entity)
-        entity_color_map[key] = (color_name, rgb)
-
-    # 5. Build the final HMM -> color map using lowercase lookups.
     final_cmap = {}
     for hmm in hmms_with_hits:
         hmm_lower = hmm.lower()
-        if hmm_lower in user_rgb_lower:
-            # Priority 1: User-defined color.
-            cname = sanitize_color_name(hmm_lower) # Create a unique name
-            rgb = user_rgb_lower[hmm_lower]
-            final_cmap[hmm] = (cname, rgb)
-        else:
-            pathway = pathway_map_lower.get(hmm_lower)
-            if pathway:
-                # Priority 2: Pathway color.
-                final_cmap[hmm] = entity_color_map[pathway.lower()]
-            else:
-                # Priority 3: Fallback unique color for the HMM.
-                final_cmap[hmm] = entity_color_map[hmm_lower]
+        pathway = pathway_map_lower.get(hmm_lower)
+        if not pathway:
+            raise SystemExit(f"[ERROR] No pathway mapping found for HMM: {hmm}")
+        rgb = pathway_colors_lower.get(pathway.lower())
+        if not rgb:
+            raise SystemExit(
+                f"[ERROR] No color defined in pathway_map.tsv for pathway '{pathway}' (HMM: {hmm})"
+            )
+        final_cmap[hmm] = (sanitize_color_name(pathway), rgb)
     return final_cmap
 
 def read_contig_lengths(path, genome):
@@ -296,13 +181,13 @@ def ensure_contig_lengths(args, output_dir: Path) -> Path:
                 "Provide --dna so it can be generated automatically."
             )
         print(f"[info] contig lengths not found at {candidate}; generating -> {default_out}", file=sys.stderr)
-        return generate_contig_lengths_table_from_dna(Path(args.dna), args.genome, default_out)
+        return generate_contig_lengths_table_from_dna(Path(args.dna), args.sample, default_out)
 
     if not args.dna:
         raise SystemExit("[ERROR] Provide --dna or an existing --contig-lengths file.")
 
     print(f"[info] Auto-generating contig lengths -> {default_out}", file=sys.stderr)
-    return generate_contig_lengths_table_from_dna(Path(args.dna), args.genome, default_out)
+    return generate_contig_lengths_table_from_dna(Path(args.dna), args.sample, default_out)
 
 def normalize_contig_id(token):
     if not token: return ""
@@ -635,27 +520,32 @@ show_tick_labels    = yes
 {zooms_block}
 """)
 
-def main():
-    args = parse_args()
-    genome = args.genome
+def run(args):
+    genome = args.sample
     etc_dir = find_circos_etc_dir()
-    default_pathway_map = Path(__file__).resolve().parent / "data" / "pathway_map.tsv"
-    if not args.pathway_map:
-        if default_pathway_map.exists():
-            args.pathway_map = str(default_pathway_map)
-            print(f"[info] Using default pathway map: {args.pathway_map}", file=sys.stderr)
-        else:
-            print(f"[warn] No --pathway-map provided and default not found at {default_pathway_map}; colors will be auto-assigned.", file=sys.stderr)
+    repo_root = Path(__file__).resolve().parents[1]
+    default_pathway_map = repo_root / "btexhmm" / "data" / "pathway_map.tsv"
+    default_operon_defs = repo_root / "btexhmm" / "data" / "operons.tsv"
+    if default_pathway_map.exists():
+        print(f"[info] Using default pathway map: {default_pathway_map}", file=sys.stderr)
+    else:
+        raise SystemExit(f"[ERROR] Default pathway map not found: {default_pathway_map}")
 
-    hits_path = Path(args.hits)
-    if not hits_path.exists():
-        raise SystemExit(f"[ERROR] hits file not found: {hits_path}")
+    hmmscan_path = Path(args.hmmscan)
+    if not hmmscan_path.exists():
+        raise SystemExit(f"[ERROR] hmmscan file not found: {hmmscan_path}")
 
     sample_dir = Path(args.outdir) / f"{genome}_circos_plot"
     ensure_dir(sample_dir)
 
-    if args.operon and not args.operon_defs:
-        raise SystemExit("[ERROR] --operon-defs is required when using the --operon flag.")
+    operon_defs_path = None
+    if args.operon:
+        operon_defs_path = default_operon_defs
+        if not operon_defs_path.exists():
+            raise SystemExit(
+                f"[ERROR] Operon definitions file not found: {operon_defs_path}. "
+                "Add the bundled btexhmm/data/operons.tsv file."
+            )
 
     contig_lengths_path = ensure_contig_lengths(args, sample_dir)
     contig_lengths = read_contig_lengths(contig_lengths_path, genome)
@@ -663,7 +553,7 @@ def main():
         raise SystemExit(f"[ERROR] No contig lengths found for genome: {genome}")
 
     features, hmms_with_hits, contigs_with_hits = [], set(), set()
-    with open(args.hits, newline="") as fh:
+    with open(args.hmmscan, newline="") as fh:
         rdr = csv.DictReader(fh)
         for row in rdr:
             if row.get("sample") != genome or int(row.get("hits", "0")) < 1:
@@ -682,37 +572,33 @@ def main():
         if filtered: contig_lengths = filtered
         else: print(f"[warn] No contig names matched hit headers for {genome}; keeping all contigs.", file=sys.stderr)
 
-    # NEW: Read the pathway map file if provided.
     pathway_map = {}
     pathway_colors = {}
-    if args.pathway_map:
+    if default_pathway_map.exists():
         try:
-            with open(args.pathway_map, newline="") as fh:
+            with open(default_pathway_map, newline="") as fh:
                 rdr = csv.DictReader(fh, delimiter="\t")
-                required = {"hmm", "pathway"}
+                required = {"hmm", "pathway", "color"}
                 if not required.issubset(set(rdr.fieldnames or [])):
                     missing = required - set(rdr.fieldnames or [])
                     raise SystemExit(f"[ERROR] Pathway map missing required columns: {', '.join(sorted(missing))}")
-                if "color" not in (rdr.fieldnames or []):
-                    print(f"[warn] Pathway map {args.pathway_map} has no 'color' column; using auto-colors per pathway.", file=sys.stderr)
                 for row in rdr:
                     hmm_val = row.get('hmm', '').strip()
                     pathway_val = row.get('pathway', '').strip()
-                    if not hmm_val or not pathway_val:
-                        print(f"[warn] Skipping pathway map row with empty hmm/pathway: {row}", file=sys.stderr)
-                        continue
-                    pathway_map[hmm_val] = pathway_val
                     color_val = row.get('color', '').strip()
-                    if color_val:
-                        pathway_colors[pathway_val] = color_val
+                    if not hmm_val or not pathway_val or not color_val:
+                        raise SystemExit(
+                            f"[ERROR] Pathway map row must include hmm, pathway, and color values: {row}"
+                        )
+                    pathway_map[hmm_val] = pathway_val
+                    pathway_colors[pathway_val] = color_val
         except FileNotFoundError:
-            raise SystemExit(f"[ERROR] Pathway map file not found: {args.pathway_map}")
+            raise SystemExit(f"[ERROR] Pathway map file not found: {default_pathway_map}")
 
-    # MODIFIED: Pass the pathway map to the color building function.
-    cmap = build_color_map(hmms_with_hits, pathway_map, pathway_colors, args.hmm_colors) if hmms_with_hits else {}
+    cmap = build_color_map(hmms_with_hits, pathway_map, pathway_colors) if hmms_with_hits else {}
 
     if args.operon:
-        operon_instances = find_operon_instances(features, args.operon_defs)
+        operon_instances = find_operon_instances(features, operon_defs_path)
         if not operon_instances:
             print(f"[warn] No operons found for {genome}; Circos plot may be empty or minimal.", file=sys.stderr)
             write_circos_conf(sample_dir / "circos.conf", etc_dir)
@@ -770,9 +656,6 @@ def main():
     write_links_placeholder(sample_dir / "links.txt")
 
     print(f"[OK] Circos project for {genome} -> {sample_dir}")
-    if args.no_render:
-        print(f"[info] Rendering skipped (--no-render set). To render manually: cd '{sample_dir}' && circos -conf circos.conf")
-        return
 
     try:
         result = subprocess.run(
@@ -790,5 +673,11 @@ def main():
         sys.stderr.write(e.stderr or "")
         raise SystemExit(f"[ERROR] circos rendering failed with exit code {e.returncode}. See logs above.")
 
+
+def main(args):
+    return run(args)
+
 if __name__ == "__main__":
-    main()
+    from btexhmm.circos_cli import main as cli_main
+
+    cli_main()

@@ -1,0 +1,15 @@
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.11
+  - pip
+  - hmmer>=3.3
+  - prodigal
+  - pandas>=2.0
+  - numpy>=1.24
+  - matplotlib>=3.7
+  - biopython>=1.81
+  - circos>=0.69
+  - pip:
+      - ./dist/btexhmm-0.1.0-py3-none-any.whl

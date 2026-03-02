@@ -1,39 +1,31 @@
-hmm	pathway	color
-TmoA	Toluene 4-Monooxygenase/Toluene 3-Monooxygenase/Toluene o-xylene Monooxygenase	#1f77b4
-TmoB	Toluene 4-Monooxygenase/Toluene 3-Monooxygenase/Toluene o-xylene Monooxygenase	#1f77b4
-TmoC	Toluene 4-Monooxygenase/Toluene 3-Monooxygenase/Toluene o-xylene Monooxygenase	#1f77b4
-TmoE	Toluene 4-Monooxygenase/Toluene 3-Monooxygenase/Toluene o-xylene Monooxygenase	#1f77b4
-TmoF	Toluene 4-Monooxygenase/Toluene 3-Monooxygenase/Toluene o-xylene Monooxygenase	#1f77b4
-TodA	Toluene Dioxygenase	#ff7f0e
-TodB	Toluene Dioxygenase	#ff7f0e
-TodC1	Toluene Dioxygenase	#ff7f0e
-TodC2	Toluene Dioxygenase	#ff7f0e
-TodD	Toluene Dioxygenase	#ff7f0e
-TomA1	Toluene 2-Monooxygenase	#2ca02c
-TomA2	Toluene 2-Monooxygenase	#2ca02c
-TomA3	Toluene 2-Monooxygenase	#2ca02c
-TomA4	Toluene 2-Monooxygenase	#2ca02c
-TomA5	Toluene 2-Monooxygenase	#2ca02c
-touA	Toluene o-xylene Degradation	#d62728
-touB	Toluene 4-Monooxygenase/Toluene 3-Monooxygenase/Toluene o-xylene Monooxygenase	#1f77b4
-touC	Toluene 4-Monooxygenase/Toluene 3-Monooxygenase/Toluene o-xylene Monooxygenase	#1f77b4
-touD	Toluene 4-Monooxygenase/Toluene 3-Monooxygenase/Toluene o-xylene Monooxygenase	#1f77b4
-touF	Toluene 4-Monooxygenase/Toluene 3-Monooxygenase/Toluene o-xylene Monooxygenase	#1f77b4
-TbuA1	Toluene 4-Monooxygenase/Toluene 3-Monooxygenase/Toluene o-xylene Monooxygenase	#1f77b4
-TbuA2	Toluene 4-Monooxygenase/Toluene 3-Monooxygenase/Toluene o-xylene Monooxygenase	#1f77b4
-TbuB	Toluene 4-Monooxygenase/Toluene 3-Monooxygenase/Toluene o-xylene Monooxygenase	#1f77b4
-TbuC	Toluene 4-Monooxygenase/Toluene 3-Monooxygenase/Toluene o-xylene Monooxygenase	#1f77b4
-TbuU	Toluene 4-Monooxygenase/Toluene 3-Monooxygenase/Toluene o-xylene Monooxygenase	#1f77b4
-TbuV	Toluene 4-Monooxygenase/Toluene 3-Monooxygenase/Toluene o-xylene Monooxygenase	#1f77b4
-bssA	Anaerobic Toluene Degradation	#9467bd
-bssB	Anaerobic Toluene Degradation	#9467bd
-bssC	Anaerobic Toluene Degradation	#9467bd
-xylA	Xylene Degradation	#8c564b
-xylM	Xylene Degradation	#8c564b
-bedC1	Benzene Degradation	#e377c2
-bedC2	Benzene Degradation	#e377c2
-edoA1	Ethylbenzene Degradation	#7f7f7f
-edoA2	Ethylbenzene Degradation	#7f7f7f
-ndoB	Ethylbenzene Degradation	#7f7f7f
-C12D	Catechol Degradation (intradiol)	#bcbd22
-C23D	Catechol Degradation (extradiol)	#17becf
+hmm	operon	pathway	color
+tmoA_tbuA1_touA	t4m	Toluene 4-Monooxygenase/Toluene 3-Monooxygenase/Toluene o-xylene Monooxygenase	#1f78b4
+tmoB_tbuU_touB	t4m	Toluene 4-Monooxygenase/Toluene 3-Monooxygenase/Toluene o-xylene Monooxygenase	#1f78b4
+tmoC_tbuB_touC	t4m	Toluene 4-Monooxygenase/Toluene 3-Monooxygenase/Toluene o-xylene Monooxygenase	#1f78b4
+tmoD_tbuV_touD	t4m	Toluene 4-Monooxygenase/Toluene 3-Monooxygenase/Toluene o-xylene Monooxygenase	#1f78b4
+tmoE_tbuA2	t4m	Toluene 4-Monooxygenase/Toluene 3-Monooxygenase/Toluene o-xylene Monooxygenase	#1f78b4
+tmoF_tbuC_touF	t4m	Toluene 4-Monooxygenase/Toluene 3-Monooxygenase/Toluene o-xylene Monooxygenase	#1f78b4
+todA	t12d	Toluene/Benzene Dioxygenase	#33a02c
+todB	t12d	Toluene/Benzene Dioxygenase	#33a02c
+todC1_bedC1	t12d	Toluene/Benzene Dioxygenase	#33a02c
+todC2_bedC2	t12d	Toluene/Benzene Dioxygenase	#33a02c
+todD	t12d	Toluene/Benzene Dioxygenase	#33a02c
+tomA1	t2m	Toluene 2-Monooxygenase	#ff7f00
+tomA2	t2m	Toluene 2-Monooxygenase	#ff7f00
+tomA3	t2m	Toluene 2-Monooxygenase	#ff7f00
+tomA4	t2m	Toluene 2-Monooxygenase	#ff7f00
+tomA5	t2m	Toluene 2-Monooxygenase	#ff7f00
+bssA	bss	Anaerobic Toluene Degradation	#6a3d9a
+bssB	bss	Anaerobic Toluene Degradation	#6a3d9a
+xylA	xyl_upper	Xylene Degradation	#e31a1c
+xylM	xyl_upper	Xylene Degradation	#e31a1c
+edoA1	ethylbenzene_dioxygenase	Ethylbenzene Degradation	#a65628
+edoA2	ethylbenzene_dioxygenase	Ethylbenzene Degradation	#a65628
+ndoB		Ethylbenzene Degradation	#a65628
+catA		Catechol Degradation (intradiol)	#b2df8a
+xylE		Catechol Degradation (extradiol)	#fb9a99
+ebdA	ethylbenzene_dehydrogenase	Ethylbenzene Degradation	#a65628
+ebdB	ethylbenzene_dehydrogenase	Ethylbenzene Degradation	#a65628
+ebdC	ethylbenzene_dehydrogenase	Ethylbenzene Degradation	#a65628
+bcrA_type_I		Benzoyl-CoA Reductase Type I	#cab2d6
+bcrA_type_II		Benzoyl-CoA Reductase Type II	#ffff99

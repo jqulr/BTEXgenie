@@ -16,13 +16,13 @@ dependencies = [
 
 [project.scripts]
 annotate-btex = "btexhmm.cli:main"
-run-circos = "btexhmm.circos:main"
+run-circos = "btexhmm.circos_cli:main"
 vis-btex = "btexhmm.vis_cli:main"
 
 [tool.setuptools]
 
 [tool.setuptools.packages.find]
-include = ["btexhmm"]
+include = ["btexhmm", "visualization_scripts"]
 exclude = ["img", "HMMs", "benchmarck_scripts", "scripts"]
 
 [tool.setuptools.package-data]

@@ -22,9 +22,11 @@ If your system already satisfies these requirements, you can move directly to ru
 ## Install via Conda
 Confirm that a working Conda installation is available. See [Conda installation](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html) for more details.
 
-Create the BTEX-HMM environment and install all dependencies via *btex_env.yml*:
+### Development install
+Create the BTEX-HMM environment and install all dependencies plus an editable install of the local repo via *btex_env.yml*:
 
 ```bash
+cd /path/to/BTEX-HMMs
 conda env create -n btex-hmm -f btex_env.yml
 ```
 
@@ -33,6 +35,24 @@ Activate the environment:
 ```bash
 conda activate btex-hmm
 ```
+
+<!-- The `btex_env.yml` file includes `pip install -e .`, so it installs the local repository in editable mode and creates the `annotate-btex`, `vis-btex`, and `run-circos` command-line entry points in the environment's `bin/` directory. -->
+
+<!-- ### End-user / release install
+For a non-editable install that does not depend on the current working directory, build a wheel from the repo root:
+
+```bash
+cd /path/to/BTEX-HMMs
+python -m build
+```
+
+Then create the environment from *btex_env_release.yml*:
+
+```bash
+conda env create -n btex-hmm -f btex_env_release.yml
+```
+
+This installs the packaged wheel from `./dist/` instead of the live source tree, which is more reproducible for end users. -->
 ## Usage
 To run BTEX-HMMs on genomes, input can be either a single protein coding file or a directory of protein files. 
 
@@ -91,7 +111,7 @@ run-circos \
 <!--## Visualization
 For isolate genomes, BTEX-HMM hits can be rendered on a Circos plot together with a GenBank file describing the genomic regions containing the identified profiles.
 
-Circos requires an etc configuration directory (for image settings, fonts, housekeeping). The `circos.py` helper auto-detects this using the `circos` executable on your PATH:
+Circos requires an etc configuration directory (for image settings, fonts, housekeeping). The `visualization_scripts/circos.py` helper auto-detects this using the `circos` executable on your PATH:
 
 To obtain the correct etc directory (from a conda install):
 
@@ -100,7 +120,7 @@ ETCDIR=$(dirname "$(dirname "$(which circos)")")/etc
 ```
 
 ### Generate Circos Plot
-The `circos.py` helper script builds a complete Circos project for a single genome, using BTEX-HMM hits and optional operon and pathway information.
+The `visualization_scripts/circos.py` helper script builds a complete Circos project for a single genome, using BTEX-HMM hits and optional operon and pathway information.
 
 #### Command-line help
 
