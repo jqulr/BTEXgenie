@@ -215,15 +215,37 @@ def parse_hit_headers(sample, hmm, headers):
         out.append({"sample": sample, "hmm": hmm, "contig": contig, "start": min(a,b), "end": max(a,b)})
     return out
 
-def find_operon_instances(features, operon_defs_path):
+def load_operon_defs_from_pathway_map(pathway_map_path, max_span_bp=15000):
     operon_defs = {}
-    with open(operon_defs_path) as fh:
-        reader = csv.DictReader(fh, delimiter='\t')
+    with open(pathway_map_path, newline="") as fh:
+        reader = csv.DictReader(fh, delimiter="\t")
+        required = {"hmm", "operon"}
+        if not required.issubset(set(reader.fieldnames or [])):
+            missing = required - set(reader.fieldnames or [])
+            raise SystemExit(
+                f"[ERROR] Pathway map missing required columns for operon mode: {', '.join(sorted(missing))}"
+            )
+
         for row in reader:
-            op_id = row['operon_id']
-            members = {m.strip() for m in row['members'].split(',')}
-            max_span = int(row['max_span_bp'])
-            operon_defs[op_id] = {'members': members, 'max_span': max_span}
+            op_id = str(row.get("operon", "")).strip()
+            hmm = str(row.get("hmm", "")).strip()
+            if not op_id or not hmm:
+                continue
+            operon_defs.setdefault(
+                op_id,
+                {"members": set(), "max_span": int(max_span_bp)},
+            )
+            operon_defs[op_id]["members"].add(hmm)
+
+    if not operon_defs:
+        raise SystemExit(
+            f"[ERROR] No non-empty operon labels found in pathway map: {pathway_map_path}"
+        )
+
+    return operon_defs
+
+
+def find_operon_instances(features, operon_defs):
 
     hits_by_contig = defaultdict(list)
     for f in features:
@@ -369,18 +391,28 @@ def write_genbank_file(path, features, contig_lengths, fna_path=None):
 def write_circos_conf(path, etcdir, tracks_info=None, operon_regions=None, operon_flag=False):
     plots_block = ""
     zooms_block = ""
-    ideogram_radius = 0.85
+    ideogram_radius = 0.80 if operon_flag else 0.85
 
     if operon_flag and tracks_info:
         outermost_track_r1 = ideogram_radius - 0.05
         track_thickness = 0.05
-        track_gap = 0.07
+        # Fit all operon tracks within the circle while preserving as much
+        # room as possible for labels. This avoids negative radii when many
+        # completeness levels are present.
+        desired_track_gap = 0.12
+        min_inner_r0 = 0.10
+        n_tracks = len(tracks_info)
+        if n_tracks <= 1:
+            track_gap = desired_track_gap
+        else:
+            available_gap_space = outermost_track_r1 - min_inner_r0 - (n_tracks * track_thickness)
+            track_gap = max(0.03, min(desired_track_gap, available_gap_space / (n_tracks - 1)))
 
         for i, track in enumerate(tracks_info):
             r1_highlight = outermost_track_r1 - i * (track_thickness + track_gap)
             r0_highlight = r1_highlight - track_thickness
 
-            label_padding = 0.005
+            label_padding = 0.01
             r0_label = r1_highlight + label_padding
             r1_label = r1_highlight + track_gap - label_padding
 
@@ -408,13 +440,16 @@ def write_circos_conf(path, etcdir, tracks_info=None, operon_regions=None, opero
     file         = {track['label_file']}
     r0           = {r0_label:.3f}r
     r1           = {r1_label:.3f}r
-    label_size   = 13p
+    label_size   = 10p
     label_font   = light
     padding      = 0p
     rpadding     = 0p
-    show_links   = no
-    label_snuggle = yes
-    max_snuggle_distance = 5r
+    show_links   = yes
+    link_dims    = 1p,2p,6p,2p,2p
+    link_thickness = 1p
+    link_color   = black
+    label_snuggle = no
+    max_snuggle_distance = 20r
     <rules>
       <rule>
         importance = {100 - i*10}
@@ -528,7 +563,6 @@ def run(args):
     etc_dir = find_circos_etc_dir()
     repo_root = Path(__file__).resolve().parents[1]
     default_pathway_map = repo_root / "btexhmm" / "data" / "pathway_map.tsv"
-    default_operon_defs = repo_root / "btexhmm" / "data" / "operons.tsv"
     if default_pathway_map.exists():
         print(f"[info] Using default pathway map: {default_pathway_map}", file=sys.stderr)
     else:
@@ -541,14 +575,14 @@ def run(args):
     sample_dir = Path(args.outdir) / f"{genome}_circos_plot"
     ensure_dir(sample_dir)
 
-    operon_defs_path = None
+    operon_defs = None
     if args.operon:
-        operon_defs_path = default_operon_defs
-        if not operon_defs_path.exists():
-            raise SystemExit(
-                f"[ERROR] Operon definitions file not found: {operon_defs_path}. "
-                "Add the bundled btexhmm/data/operons.tsv file."
-            )
+        operon_defs = load_operon_defs_from_pathway_map(default_pathway_map, max_span_bp=15000)
+        print(
+            f"[info] Loaded {len(operon_defs)} operon definition(s) from pathway_map.tsv "
+            f"using the 'operon' column and a fixed 15000 bp span",
+            file=sys.stderr,
+        )
 
     contig_lengths_path = ensure_contig_lengths(args, sample_dir)
     contig_lengths = read_contig_lengths(contig_lengths_path, genome)
@@ -576,6 +610,7 @@ def run(args):
         else: print(f"[warn] No contig names matched hit headers for {genome}; keeping all contigs.", file=sys.stderr)
 
     pathway_map = {}
+    operon_map = {}
     pathway_colors = {}
     if default_pathway_map.exists():
         try:
@@ -587,12 +622,14 @@ def run(args):
                     raise SystemExit(f"[ERROR] Pathway map missing required columns: {', '.join(sorted(missing))}")
                 for row in rdr:
                     hmm_val = row.get('hmm', '').strip()
+                    operon_val = row.get('operon', '').strip()
                     pathway_val = row.get('pathway', '').strip()
                     color_val = row.get('color', '').strip()
                     if not hmm_val or not pathway_val or not color_val:
                         raise SystemExit(
                             f"[ERROR] Pathway map row must include hmm, pathway, and color values: {row}"
                         )
+                    operon_map[hmm_val] = operon_val
                     pathway_map[hmm_val] = pathway_val
                     pathway_colors[pathway_val] = color_val
         except FileNotFoundError:
@@ -601,8 +638,18 @@ def run(args):
     cmap = build_color_map(hmms_with_hits, pathway_map, pathway_colors) if hmms_with_hits else {}
 
     if args.operon:
-        operon_instances = find_operon_instances(features, operon_defs_path)
-        if not operon_instances:
+        singleton_hits = [
+            f for f in features
+            if not operon_map.get(f["hmm"], "").strip()
+        ]
+        operon_instances = find_operon_instances(features, operon_defs)
+        if singleton_hits:
+            print(
+                f"[info] Preserving {len(singleton_hits)} hit(s) with blank operon labels as standalone features",
+                file=sys.stderr,
+            )
+
+        if not operon_instances and not singleton_hits:
             print(f"[warn] No operons found for {genome}; Circos plot may be empty or minimal.", file=sys.stderr)
             write_circos_conf(sample_dir / "circos.conf", etc_dir)
         else:
@@ -613,6 +660,10 @@ def run(args):
             for inst in operon_instances:
                 track_idx = level_to_track_idx[inst['completeness']]
                 tracks_data[track_idx].extend(inst['hits'])
+
+            if singleton_hits:
+                singleton_track_idx = len(tracks_data)
+                tracks_data[singleton_track_idx].extend(singleton_hits)
 
             tracks_info_for_conf = []
             for track_idx in sorted(tracks_data.keys()):

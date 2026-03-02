@@ -96,10 +96,10 @@ vis-btex --hmmscan /path/to/output_dir/btex_hmm_summary.csv \
 
 ```bash
 run-circos \
-  --hits /path/to/btex_hmm_summary.csv \
-  --outdir /path/to/output_dir \
+  --hmmscan /path/to/btex_hmm_summary.csv \
   --dna /test_genomes/Aromatoleum_bremense_PbN1T.fna \
-  --genome "Aromatoleum_bremense_PbN1T" 
+  --outdir /path/to/output_dir \
+  --s "Aromatoleum_bremense_PbN1T" 
 ```
 
 **Input:**
