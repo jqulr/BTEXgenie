@@ -27,3 +27,4 @@ exclude = ["img", "HMMs", "benchmarck_scripts", "scripts"]
 
 [tool.setuptools.package-data]
 "btexhmm" = ["data/*", "data/flat/*"]
+"visualization_scripts" = ["*.R"]
