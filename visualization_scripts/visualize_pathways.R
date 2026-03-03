@@ -119,7 +119,7 @@ get_white_kos_for_non_btex_nodes <- function(pathway_ko_groups, ko_universe) {
 
 get_sample_colors <- function(samples) {
   palette <- c(
-    "#E41A1C","#377EB8","#FF7F00","#4DAF4A","#984EA3",
+    "#F08A8B","#377EB8","#FF7F00","#4DAF4A","#984EA3",
     "#00BCD4","#F781BF","#A65628","#FFD92F","#FB9A99",
     "#999999","#66C2A5","#1B9E77","#D95F02","#7570B3",
     "#E7298A","#66A61E","#E6AB02","#A6761D","#1F78B4"
