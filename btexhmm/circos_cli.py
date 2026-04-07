@@ -22,23 +22,13 @@ def build_parser() -> argparse.ArgumentParser:
             "If omitted, contig_length.tsv is generated under the Circos output dir using --dna."
         ),
     )
-    ap.add_argument("--outdir", required=True, help="Output root dir")
-    ap.add_argument("-s", "--sample", required=True, help="Sample/genome name to render")
-    ap.add_argument(
-        "--only-hit-contigs",
-        action="store_true",
-        help="Include only contigs that have >=1 hit",
-    )
-    ap.add_argument(
-        "--operon",
-        action="store_true",
-        help="Switch to operon-centric plotting mode with layered tracks for completeness.",
-    )
+    ap.add_argument("-o", "--outdir", required=True, help="Output dir")
+    ap.add_argument("-s", "--sample", required=True, help="Sample/genome name to plot (must match sample column in --hmmscan)")
     ap.add_argument(
         "--dna",
         help=(
             "Path to the genome nucleotide FASTA (.fna/.fasta). "
-            "Used to generate contig lengths when --contig-lengths is omitted and to populate GenBank sequences."
+            "Used to generate contig lengths when --contig-lengths is omitted."
         ),
     )
     return ap
@@ -68,10 +58,6 @@ def main(argv=None):
     ]
     if args.contig_lengths:
         cmd += ["--contig-lengths", args.contig_lengths]
-    if args.only_hit_contigs:
-        cmd += ["--only-hit-contigs"]
-    if args.operon:
-        cmd += ["--operon"]
     if args.dna:
         cmd += ["--dna", args.dna]
 

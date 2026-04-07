@@ -58,9 +58,7 @@ infer_default_pathway_map <- function() {
   candidate1 <- file.path("/home/juneq/BTEX-HMMs/btexhmm/data/pathway_map.tsv")
   if (file.exists(candidate1)) return(candidate1)
   stop(
-    sprintf("[ERROR] Default pathway map not found. Tried:
-  %s
-Use --pathway-map to provide it explicitly.", candidate1),
+    sprintf("[ERROR] Default pathway map not found. Tried:\n  %s\nUse --pathway-map to provide it explicitly.", candidate1),
     call. = FALSE
   )
 }
@@ -217,14 +215,12 @@ load_pathway_map <- function(pathway_map_path) {
   if (length(missing) > 0) {
     stop(sprintf("[ERROR] Pathway map missing required columns: %s", paste(sort(missing), collapse = ", ")), call. = FALSE)
   }
-  if (!"operon" %in% colnames(pm)) pm$operon <- ""
 
   pm <- pm |>
     mutate(
       hmm = trimws(hmm),
       pathway = trimws(pathway),
-      color = trimws(color),
-      operon = trimws(operon)
+      color = trimws(color)
     )
 
   bad <- pm |>
@@ -263,103 +259,6 @@ build_color_map <- function(hmms_with_hits, pathway_df) {
     )
   })
   bind_rows(final)
-}
-
-load_operon_defs_from_pathway_map <- function(pathway_df, max_span_bp = 15000L) {
-  req <- c("hmm", "operon")
-  missing <- setdiff(req, colnames(pathway_df))
-  if (length(missing) > 0) {
-    stop(sprintf("[ERROR] Pathway map missing required columns for operon mode: %s", paste(sort(missing), collapse = ", ")), call. = FALSE)
-  }
-
-  operon_df <- pathway_df |>
-    transmute(operon = trimws(operon), hmm = trimws(hmm)) |>
-    filter(nzchar(operon), nzchar(hmm))
-
-  if (nrow(operon_df) == 0) {
-    stop("[ERROR] No non-empty operon labels found in pathway map.", call. = FALSE)
-  }
-
-  split(operon_df$hmm, operon_df$operon) |>
-    lapply(function(x) list(members = unique(x), max_span = as.integer(max_span_bp)))
-}
-
-find_operon_instances <- function(features, operon_defs) {
-  if (nrow(features) == 0) return(list())
-  hits_by_contig <- split(features, features$contig)
-  found_operons <- list()
-
-  for (operon_id in names(operon_defs)) {
-    op_def <- operon_defs[[operon_id]]
-    required_members <- op_def$members
-    max_span <- op_def$max_span
-    member_hmms_lower <- tolower(required_members)
-
-    for (contig in names(hits_by_contig)) {
-      contig_hits <- hits_by_contig[[contig]]
-      member_hits <- contig_hits |>
-        filter(tolower(hmm) %in% member_hmms_lower) |>
-        arrange(start)
-
-      if (nrow(member_hits) == 0) next
-
-      best_cluster <- NULL
-
-      for (i in seq_len(nrow(member_hits))) {
-        start_hit <- member_hits[i, ]
-        current_cluster <- start_hit
-
-        if (i < nrow(member_hits)) {
-          for (j in seq((i + 1), nrow(member_hits))) {
-            next_hit <- member_hits[j, ]
-            if ((next_hit$end - start_hit$start) <= max_span) {
-              current_cluster <- bind_rows(current_cluster, next_hit)
-            } else {
-              break
-            }
-          }
-        }
-
-        cluster_hmms_found <- unique(tolower(current_cluster$hmm))
-        completeness <- length(cluster_hmms_found) / length(required_members)
-        span <- current_cluster$end[nrow(current_cluster)] - current_cluster$start[1]
-
-        is_better <- FALSE
-        if (is.null(best_cluster)) {
-          is_better <- TRUE
-        } else if (completeness > best_cluster$completeness) {
-          is_better <- TRUE
-        } else if (identical(completeness, best_cluster$completeness) && span < best_cluster$span) {
-          is_better <- TRUE
-        }
-
-        if (is_better) {
-          best_cluster <- list(
-            operon_id = operon_id,
-            contig = contig,
-            start = current_cluster$start[1],
-            end = current_cluster$end[nrow(current_cluster)],
-            span = span,
-            completeness = completeness,
-            hits = current_cluster
-          )
-        }
-      }
-
-      if (!is.null(best_cluster)) {
-        message(sprintf(
-          "[info] Found instance of '%s' on %s (Completeness: %.1f%%, Span: %d bp)",
-          best_cluster$operon_id,
-          best_cluster$contig,
-          best_cluster$completeness * 100,
-          best_cluster$span
-        ))
-        found_operons[[length(found_operons) + 1]] <- best_cluster
-      }
-    }
-  }
-
-  found_operons
 }
 
 compute_gc_skew_windows <- function(dna_path, contigs_to_keep = NULL, window_size = 5000L, step_size = 5000L) {
@@ -491,8 +390,8 @@ plot_ideogram_track <- function(sector_df, tick_major = 5e5, tick_minor = 1e5) {
 plot_gc_skew_track <- function(gc_skew_df, track_height = 0.10) {
   if (nrow(gc_skew_df) == 0) return(invisible(NULL))
 
-    max_abs_skew <- max(abs(gc_skew_df$gc_skew), na.rm = TRUE)
-    plot_limit <- max(0.05, max_abs_skew)
+  max_abs_skew <- max(abs(gc_skew_df$gc_skew), na.rm = TRUE)
+  plot_limit <- max(0.05, max_abs_skew)
 
   circos.genomicTrackPlotRegion(
     gc_skew_df[, c("contig", "start", "end", "gc_skew")],
@@ -556,15 +455,7 @@ plot_feature_track <- function(track_features, cmap, track_height = 0.08, label_
   }
 }
 
-plot_operon_tracks <- function(tracks_data, cmap) {
-  for (track_idx in seq_along(tracks_data)) {
-    df <- tracks_data[[track_idx]] |>
-      distinct(contig, start, end, hmm, strand, .keep_all = TRUE)
-    plot_feature_track(df, cmap, track_height = 0.07, label_cex = 0.38, show_links = TRUE)
-  }
-}
-
-make_circlize_plot <- function(sample_dir, genome, contig_lengths, features, cmap, gc_skew_df = NULL, operon_flag = FALSE, tracks_data = NULL, pdf_width = 10, pdf_height = 10) {
+make_circlize_plot <- function(sample_dir, genome, contig_lengths, features, cmap, gc_skew_df = NULL, pdf_width = 10, pdf_height = 10) {
   pdf_path <- file.path(sample_dir, "circos_plot.pdf")
   png_path <- file.path(sample_dir, "circos_plot.png")
 
@@ -595,22 +486,17 @@ make_circlize_plot <- function(sample_dir, genome, contig_lengths, features, cma
     circos.initialize(factors = as.character(sector_df$contig), xlim = xlim_mat)
     plot_ideogram_track(sector_df)
 
-    if (operon_flag && !is.null(tracks_data) && length(tracks_data) > 0) {
-      plot_operon_tracks(tracks_data, cmap)
-    } else {
-      if (!is.null(gc_skew_df) && nrow(gc_skew_df) > 0) {
-        plot_gc_skew_track(gc_skew_df, track_height = 0.10)
-      }
-      plot_feature_track(features, cmap, track_height = 0.09, label_cex = 0.45, show_links = FALSE)
+    if (!is.null(gc_skew_df) && nrow(gc_skew_df) > 0) {
+      plot_gc_skew_track(gc_skew_df, track_height = 0.10)
     }
+    plot_feature_track(features, cmap, track_height = 0.09, label_cex = 0.45, show_links = FALSE)
 
-    # title(main = genome)
     text(
-        x = 0,
-        y = 0,
-        labels = genome,
-        cex = 1.2,
-        font = 2
+      x = 0,
+      y = 0,
+      labels = genome,
+      cex = 1.2,
+      font = 2
     )
     circos.clear()
   }
@@ -639,14 +525,6 @@ run <- function(opt) {
   ensure_dir(sample_dir)
 
   pathway_df <- load_pathway_map(pathway_map_path)
-  operon_defs <- NULL
-  if (isTRUE(opt$operon)) {
-    operon_defs <- load_operon_defs_from_pathway_map(pathway_df, max_span_bp = 15000L)
-    message(sprintf(
-      "[info] Loaded %d operon definition(s) from pathway_map.tsv using the 'operon' column and a fixed 15000 bp span",
-      length(operon_defs)
-    ))
-  }
 
   contig_lengths_path <- ensure_contig_lengths(opt, sample_dir)
   contig_lengths <- read_contig_lengths(contig_lengths_path, genome)
@@ -669,95 +547,24 @@ run <- function(opt) {
   features <- bind_rows(features_list)
 
   hmms_with_hits <- sort(unique(features$hmm))
-  contigs_with_hits <- sort(unique(features$contig))
-
-  if (isTRUE(opt$only_hit_contigs)) {
-    if (length(contigs_with_hits) == 0) {
-      stop(sprintf("[ERROR] --only-hit-contigs set but no hits found for %s.", genome), call. = FALSE)
-    }
-    filtered <- contig_lengths |>
-      filter(contig %in% contigs_with_hits | vapply(contig, normalize_contig_id, character(1)) %in% contigs_with_hits)
-    if (nrow(filtered) > 0) {
-      contig_lengths <- filtered
-    } else {
-      message(sprintf("[warn] No contig names matched hit headers for %s; keeping all contigs.", genome))
-    }
-  }
 
   cmap <- if (length(hmms_with_hits) > 0) build_color_map(hmms_with_hits, pathway_df) else tibble(
     hmm = character(), color_name = character(), rgb = character(), color_hex = character(), pathway = character()
   )
 
-  gc_skew_df <- NULL
-  if (!isTRUE(opt$operon)) {
-    gc_skew_df <- compute_gc_skew_windows(
-      dna_path = opt$dna,
-      contigs_to_keep = contig_lengths$contig,
-      window_size = 5000L,
-      step_size = 5000L
-    )
-  }
-
-  operon_map <- pathway_df |>
-    select(hmm, operon)
-
-  tracks_data <- NULL
-  operon_instances <- list()
-
-  if (isTRUE(opt$operon)) {
-    singleton_hits <- features |>
-      left_join(operon_map, by = "hmm") |>
-      mutate(operon = ifelse(is.na(operon), "", trimws(operon))) |>
-      filter(!nzchar(operon)) |>
-      select(sample, hmm, contig, start, end, strand)
-
-    operon_instances <- find_operon_instances(features, operon_defs)
-
-    if (nrow(singleton_hits) > 0) {
-      message(sprintf("[info] Preserving %d hit(s) with blank operon labels as standalone features", nrow(singleton_hits)))
-    }
-
-    if (length(operon_instances) == 0 && nrow(singleton_hits) == 0) {
-      message(sprintf("[warn] No operons found for %s; plot may be empty or minimal.", genome))
-      tracks_data <- list()
-    } else {
-      completeness_levels <- sort(unique(vapply(operon_instances, function(x) x$completeness, numeric(1))), decreasing = TRUE)
-      level_to_track_idx <- stats::setNames(seq_along(completeness_levels), as.character(completeness_levels))
-      tracks_data <- vector("list", length(completeness_levels))
-
-      if (length(operon_instances) > 0) {
-        for (inst in operon_instances) {
-          track_idx <- level_to_track_idx[[as.character(inst$completeness)]]
-          current_track <- tracks_data[[track_idx]]
-          if (is.null(current_track)) current_track <- tibble()
-          tracks_data[[track_idx]] <- bind_rows(current_track, inst$hits)
-        }
-      }
-
-      if (nrow(singleton_hits) > 0) {
-        singleton_track_idx <- length(tracks_data) + 1
-        tracks_data[[singleton_track_idx]] <- singleton_hits
-      }
-
-      tracks_data <- lapply(tracks_data, function(df) df |> distinct(contig, start, end, hmm, .keep_all = TRUE))
-    }
-  }
+  gc_skew_df <- compute_gc_skew_windows(
+    dna_path = opt$dna,
+    contigs_to_keep = contig_lengths$contig,
+    window_size = 5000L,
+    step_size = 5000L
+  )
 
   write_hmm_colors_tsv(file.path(sample_dir, "hmm_colors.tsv"), cmap)
   write_karyotype_tsv(file.path(sample_dir, "karyotype.tsv"), contig_lengths)
   write_gene_hits_tsv(file.path(sample_dir, "gene_hits.tsv"), features, cmap)
   write_gene_labels_tsv(file.path(sample_dir, "gene_labels.tsv"), features)
   write_genbank_like_hits_tsv(file.path(sample_dir, "gene_hits_export.tsv"), features, contig_lengths)
-  if (!is.null(gc_skew_df)) {
-    write_gc_skew_tsv(file.path(sample_dir, "gc_skew_5kb.tsv"), gc_skew_df)
-  }
-
-  if (isTRUE(opt$operon) && !is.null(tracks_data)) {
-    for (i in seq_along(tracks_data)) {
-      write_gene_hits_tsv(file.path(sample_dir, sprintf("genes_track_%d.tsv", i - 1)), tracks_data[[i]], cmap)
-      write_gene_labels_tsv(file.path(sample_dir, sprintf("gene_labels_track_%d.tsv", i - 1)), tracks_data[[i]])
-    }
-  }
+  write_gc_skew_tsv(file.path(sample_dir, "gc_skew_5kb.tsv"), gc_skew_df)
 
   plot_paths <- make_circlize_plot(
     sample_dir = sample_dir,
@@ -766,8 +573,6 @@ run <- function(opt) {
     features = features,
     cmap = cmap,
     gc_skew_df = gc_skew_df,
-    operon_flag = isTRUE(opt$operon),
-    tracks_data = tracks_data,
     pdf_width = opt$pdf_width,
     pdf_height = opt$pdf_height
   )
@@ -781,12 +586,10 @@ run <- function(opt) {
 
 option_list <- list(
   make_option("--hmmscan", type = "character", help = "Path to btex_hmm_summary.csv or similar hmmscan summary CSV"),
-  make_option("--outdir", type = "character", help = "Output directory"),
+  make_option("-o", "--outdir", type = "character", help = "Output directory"),
   make_option("--dna", type = "character", default = NULL, help = "Genome FASTA file for the selected sample"),
-  make_option("--sample", type = "character", help = "Sample/genome name to plot"),
+  make_option("-s", "--sample", type = "character", help = "Sample/genome name to plot"),
   make_option("--contig-lengths", dest = "contig_lengths", type = "character", default = NULL, help = "Optional TSV with columns: sample, contig, length"),
-  make_option("--only-hit-contigs", dest = "only_hit_contigs", action = "store_true", default = FALSE, help = "Only plot contigs with >=1 hit"),
-  make_option("--operon", action = "store_true", default = FALSE, help = "Enable operon mode with completeness-ranked concentric tracks"),
   make_option("--pathway-map", dest = "pathway_map", type = "character", default = NULL, help = "Optional override for pathway_map.tsv"),
   make_option("--pdf-width", dest = "pdf_width", type = "double", default = 10, help = "Output PDF/PNG width in inches [default %default]"),
   make_option("--pdf-height", dest = "pdf_height", type = "double", default = 10, help = "Output PDF/PNG height in inches [default %default]")
