@@ -586,9 +586,9 @@ run <- function(opt) {
 
 option_list <- list(
   make_option("--hmmscan", type = "character", help = "Path to btex_hmm_summary.csv or similar hmmscan summary CSV"),
-  make_option("-o", "--outdir", type = "character", help = "Output directory"),
+  make_option(c("-o", "--outdir"), type = "character", help = "Output directory"),
   make_option("--dna", type = "character", default = NULL, help = "Genome FASTA file for the selected sample"),
-  make_option("-s", "--sample", type = "character", help = "Sample/genome name to plot"),
+  make_option(c("-s", "--sample"), type = "character", help = "Sample/genome name to plot"),
   make_option("--contig-lengths", dest = "contig_lengths", type = "character", default = NULL, help = "Optional TSV with columns: sample, contig, length"),
   make_option("--pathway-map", dest = "pathway_map", type = "character", default = NULL, help = "Optional override for pathway_map.tsv"),
   make_option("--pdf-width", dest = "pdf_width", type = "double", default = 10, help = "Output PDF/PNG width in inches [default %default]"),

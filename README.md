@@ -99,15 +99,17 @@ vis-btex --hmmscan /path/to/output_dir/btex_hmm_summary.csv \
 run-circos \
   --hmmscan /path/to/btex_hmm_summary.csv \
   --dna /test_genomes/Aromatoleum_bremense_PbN1T.fna \
-  --outdir /path/to/output_dir \
-  --s "Aromatoleum_bremense_PbN1T" 
+  -o /path/to/output_dir \
+  -s "Aromatoleum_bremense_PbN1T" 
 ```
 
 **Input:**
 - `run-circos` takes btex_hmm_summary.csv together with the genome sequence file for a single sample. In the example above, the genome sequence file for Aromatoleum bremense PbN1T in the test_genomes folder is used.
 
 **Output:**
-- `run-circos` generates .png and .svg Circos plots, along with the Circos configuration files and supporting files used to produce the plots.
+- `run-circos` generates .png and .pdf Circos plots, along with the Circos configuration files and supporting files used to produce the plots.
+
+**Example Output:**
 
 <!--## Visualization
 For isolate genomes, BTEX-HMM hits can be rendered on a Circos plot together with a GenBank file describing the genomic regions containing the identified profiles.
