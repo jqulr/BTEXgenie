@@ -11,5 +11,15 @@ dependencies:
   - matplotlib>=3.7
   - biopython>=1.81
   - circos>=0.69
+  - r-base
+  - r-optparse
+  - r-readr
+  - r-dplyr
+  - r-stringr
+  - r-tidyr
+  - r-purrr
+  - r-tibble
+  - r-circlize
+  - bioconductor-genomicranges
   - pip:
       - -e .
