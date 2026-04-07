@@ -1,8 +1,9 @@
 """CLI wrapper for the Circos visualization entry point."""
 
 import argparse
-
-from visualization_scripts.circos import run
+import shutil
+import subprocess
+from pathlib import Path
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -49,7 +50,34 @@ def parse_args(argv=None):
 
 def main(argv=None):
     args = parse_args(argv)
-    return run(args)
+    rscript = shutil.which("Rscript")
+    if rscript is None:
+        raise SystemExit("Rscript not found in PATH.")
+
+    repo_root = Path(__file__).resolve().parents[1]
+    r_circos = repo_root / "visualization_scripts" / "circos.R"
+    if not r_circos.exists():
+        raise SystemExit(f"Circos R script not found: {r_circos}")
+
+    cmd = [
+        rscript,
+        str(r_circos),
+        "--hmmscan", args.hmmscan,
+        "--outdir", args.outdir,
+        "--sample", args.sample,
+    ]
+    if args.contig_lengths:
+        cmd += ["--contig-lengths", args.contig_lengths]
+    if args.only_hit_contigs:
+        cmd += ["--only-hit-contigs"]
+    if args.operon:
+        cmd += ["--operon"]
+    if args.dna:
+        cmd += ["--dna", args.dna]
+
+    subprocess.run(cmd, check=True)
+
+    return 0
 
 
 __all__ = ["build_parser", "parse_args", "main"]
