@@ -22,7 +22,8 @@ option_list <- list(
               default = "ko_map.tsv",
               help = "KO mapping table (gene/hmm/subunit + ko column)"),
   make_option(c("--pathways"), type = "character",
-              help = "Comma separated KEGG map IDs, e.g. 00623,00642"),
+              help = "Comma separated KEGG map IDs, e.g. 00623,00642. Note: Supplying IDs outside of BTEX degradation
+              while using BTEX-HMMs scan may result in limited annotations."),
   make_option(c("--outdir"), type = "character", default = "kegg_urls",
               help = "Output directory")
 )

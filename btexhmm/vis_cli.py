@@ -28,7 +28,11 @@ def parse_args():
     p.add_argument(
         "--pathways",
         default=DEFAULT_PATHWAYS,
-        help=f"Comma-separated KEGG pathway IDs (default: {DEFAULT_PATHWAYS}).",
+        help=(
+        f"Comma-separated KEGG pathway IDs (default: {DEFAULT_PATHWAYS}). "
+        "Note: Supplying IDs outside of BTEX degradation while using "
+        "BTEX-HMMs scan may result in limited annotations."
+    ),
     )
     p.add_argument(
         "-o",

@@ -474,13 +474,17 @@ make_circlize_plot <- function(sample_dir, genome, contig_lengths, features, cma
     device_fun()
     on.exit(dev.off(), add = TRUE)
 
+    par(mar = c(5, 5, 5, 5))
+
     circos.clear()
     circos.par(
       start.degree = 90,
       gap.degree = rep(1, nrow(sector_df)),
       cell.padding = c(0, 0, 0, 0),
       track.margin = c(0.01, 0.01),
-      points.overflow.warning = FALSE
+      points.overflow.warning = FALSE,
+      canvas.xlim = c(-1.35, 1.35),
+      canvas.ylim = c(-1.35, 1.35)
     )
 
     circos.initialize(factors = as.character(sector_df$contig), xlim = xlim_mat)
@@ -501,11 +505,12 @@ make_circlize_plot <- function(sample_dir, genome, contig_lengths, features, cma
     circos.clear()
   }
 
-  draw_once(function() pdf(pdf_path, width = pdf_width, height = pdf_height, useDingbats = FALSE))
+  draw_once(function() pdf(pdf_path, width = pdf_width, height = pdf_height, paper = "special", useDingbats = FALSE))
   draw_once(function() {
-    png_width_px <- max(1L, as.integer(round(pdf_width * 300)))
-    png_height_px <- max(1L, as.integer(round(pdf_height * 300)))
-    png(png_path, width = png_width_px, height = png_height_px, res = 300)
+    png_width_px <- max(1L, as.integer(round(pdf_width * 400)))
+    png_height_px <- max(1L, as.integer(round(pdf_height * 400)))
+    png(png_path, width = pdf_width, height = pdf_height, units = "in", res = 300)
+
   })
 
   invisible(list(pdf = pdf_path, png = png_path))
@@ -591,8 +596,8 @@ option_list <- list(
   make_option(c("-s", "--sample"), type = "character", help = "Sample/genome name to plot"),
   make_option("--contig-lengths", dest = "contig_lengths", type = "character", default = NULL, help = "Optional TSV with columns: sample, contig, length"),
   make_option("--pathway-map", dest = "pathway_map", type = "character", default = NULL, help = "Optional override for pathway_map.tsv"),
-  make_option("--pdf-width", dest = "pdf_width", type = "double", default = 10, help = "Output PDF/PNG width in inches [default %default]"),
-  make_option("--pdf-height", dest = "pdf_height", type = "double", default = 10, help = "Output PDF/PNG height in inches [default %default]")
+  make_option("--pdf-width", dest = "pdf_width", type = "double", default = 20, help = "Output PDF/PNG width in inches [default %default]"),
+  make_option("--pdf-height", dest = "pdf_height", type = "double", default = 20, help = "Output PDF/PNG height in inches [default %default]")
 )
 
 parser <- OptionParser(option_list = option_list)
