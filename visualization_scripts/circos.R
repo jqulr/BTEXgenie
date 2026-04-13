@@ -343,6 +343,7 @@ prepare_sector_data <- function(contig_lengths) {
     mutate(contig = factor(contig, levels = contig))
 }
 
+# Plots the main ideogram track with contigs and tick matks every 500 kb (major) and 100 kb (minor).
 plot_ideogram_track <- function(sector_df, tick_major = 5e5, tick_minor = 1e5) {
   circos.trackPlotRegion(
     ylim = c(0, 1),
@@ -387,6 +388,9 @@ plot_ideogram_track <- function(sector_df, tick_major = 5e5, tick_minor = 1e5) {
   )
 }
 
+# Plots GC skew as an additional track.
+# Positive skew shown in orange
+# Negative skew shown in blue
 plot_gc_skew_track <- function(gc_skew_df, track_height = 0.10) {
   if (nrow(gc_skew_df) == 0) return(invisible(NULL))
 
@@ -417,6 +421,7 @@ plot_gc_skew_track <- function(gc_skew_df, track_height = 0.10) {
   )
 }
 
+# Plots HMM hits as rectangles colored by the color col in pathway_map.tsv
 plot_feature_track <- function(track_features, cmap, track_height = 0.08, label_cex = 0.45, show_links = FALSE) {
   if (nrow(track_features) == 0) {
     circos.trackPlotRegion(ylim = c(0, 1), bg.border = NA, track.height = track_height, panel.fun = function(x, y) {})
@@ -455,6 +460,7 @@ plot_feature_track <- function(track_features, cmap, track_height = 0.08, label_
   }
 }
 
+# Write out .png and .pdf circos plots
 make_circlize_plot <- function(sample_dir, genome, contig_lengths, features, cmap, gc_skew_df = NULL, pdf_width = 10, pdf_height = 10) {
   pdf_path <- file.path(sample_dir, "circos_plot.pdf")
   png_path <- file.path(sample_dir, "circos_plot.png")

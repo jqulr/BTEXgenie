@@ -4,7 +4,9 @@ from pathlib import Path
 from collections import defaultdict
 
 # This script runs hmmscan on all the HMMs with input protein-coding files and outputs detailed TSV 
-# summary with columns: sample, hmm, hits, scores, ievalues, cutoff_used, total_genes, hit_headers. 
+# summary with columns: sample, hmm, hits, scores, ievalues, cutoff_used, total_genes, hit_headers.
+# The cutoff_used column is retained for compatibility and stores the model's
+# sequence-level GA threshold from the HMM library.
 # 
 #
 # Example:
@@ -13,39 +15,6 @@ from collections import defaultdict
 #   --proteins-dir /home/juneq/Toluene-HMM/btexhmm/test_genomes \
 #   --out /home/juneq/Toluene_test/test_output/hmmscan_summary.csv \
 #   --cpus 8
-
-
-def load_cutoffs(path: Path) -> dict[str, float]:
-    """
-    Reads a 2-column TSV with headers: hmm, cutoff
-    Returns dict[str -> float]
-    """
-    if not path or not path.exists():
-        return {}
-    mp: dict[str, float] = {}
-    with open(path, "rt") as fh:
-        header = fh.readline().rstrip("\n").split("\t")
-        try:
-            i_hmm = header.index("hmm")
-            i_cut = header.index("cutoff")
-        except ValueError:
-            raise SystemExit("[err] cutoff file must have headers: hmm<TAB>cutoff")
-        for ln, line in enumerate(fh, 2):
-            if not line.strip():
-                continue
-            parts = line.rstrip("\n").split("\t")
-            if len(parts) <= max(i_hmm, i_cut):
-                continue
-            name = parts[i_hmm].strip()
-            if not name:
-                continue
-            try:
-                val = float(parts[i_cut])
-            except ValueError:
-                raise SystemExit(f"[err] non-numeric cutoff on line {ln}: {parts[i_cut]!r}")
-            mp[name] = val
-    return mp
-
 
 def sh(cmd, quiet=False):
     if not quiet:
@@ -316,7 +285,8 @@ def main(argv: list[str] | None = None):
         description=(
             "Run hmmscan vs protein FASTAs using a concatenated HMM library, "
             "writing sample,hmm,hits,scores,ievalues,cutoff_used,total_genes,hit_headers. "
-            "Sample name is taken from the FASTA basename."
+            "Sample name is taken from the FASTA basename. "
+            "GA thresholds are read from each HMM in the concatenated library."
         )
     )
     ap.add_argument("--hmm-dir", required=False, help="directory with individual *.hmm (for model name list; optional if --hmm-lib contains names)")
@@ -366,7 +336,6 @@ def main(argv: list[str] | None = None):
         required=True,
         help="CSV path for output counts (sample,hmm,hits,scores,ievalues,cutoff_used,total_genes,hit_headers)",
     )
-    ap.add_argument("--cutoffs", default=None, help="TSV with columns: hmm<TAB>cutoff (may include many models)")
     ap.add_argument(
         "--models",
         default=None,
@@ -442,10 +411,6 @@ def main(argv: list[str] | None = None):
     if not valid_protein_fastas:
         raise SystemExit("[err] no valid protein FASTA inputs found after validation")
 
-    # Load full cutoffs table (may include many models); use only for selected models
-    cutmap_all = load_cutoffs(Path(args.cutoffs)) if args.cutoffs else {}
-    cutmap = {m: cutmap_all[m] for m in model_set if m in cutmap_all}
-
     # Apply an i-Evalue threshold when counting: prefer explicit --max-ie, else reuse --domevalue if numeric
     max_ie = args.max_ie
     if max_ie is None and args.domevalue is not None:
@@ -488,7 +453,7 @@ def main(argv: list[str] | None = None):
     scores_by_key = defaultdict(list)
     evalues_by_key = defaultdict(list)
     thresh_by_key = {}
-    warned_missing_cut = set()
+    warned_missing_ga = set()
 
     for sample in samples:
         gdir = sample_parent.get(sample)
@@ -523,23 +488,21 @@ def main(argv: list[str] | None = None):
                 if model not in model_set:
                     continue
 
-                cutoff = cutmap_all.get(model)
-                if cutoff is not None:
-                    if bits < cutoff:
-                        continue
-                elif model not in warned_missing_cut and args.cutoffs:
+                ga = ga_by_model.get(model)
+                ga_seq = ga[0] if ga is not None else None
+                if ga_seq is None and model not in warned_missing_ga:
                     print(
-                        f"[warn] no cutoff found for HMM '{model}' in {args.cutoffs}; "
+                        f"[warn] no GA threshold found in HMM library for model '{model}'; "
                         "using only other filters for this model"
                     )
-                    warned_missing_cut.add(model)
+                    warned_missing_ga.add(model)
 
                 if args.min_bits is not None and bits < args.min_bits:
                     continue
                 if max_ie is not None and i_e > max_ie:
                     continue
 
-                diff_score = bits - (cutoff if cutoff is not None else 0.0)
+                diff_score = bits - (ga_seq if ga_seq is not None else 0.0)
                 hits_per_protein[seqid].append(
                     {
                         "model": model,
@@ -547,7 +510,7 @@ def main(argv: list[str] | None = None):
                         "diff": diff_score,
                         "bits": bits,
                         "i_e": i_e,
-                        "cutoff": cutoff,
+                        "ga_seq": ga_seq,
                     }
                 )
 
@@ -568,8 +531,8 @@ def main(argv: list[str] | None = None):
                     evalues_by_key[key].append(best_hit["i_e"])
                 hdr = seqid_to_header.get(seqid, f">{seqid}")
                 headers_by_key[key].add(hdr)
-                if best_hit["cutoff"] is not None and key not in thresh_by_key:
-                    thresh_by_key[key] = best_hit["cutoff"]
+                if best_hit["ga_seq"] is not None and key not in thresh_by_key:
+                    thresh_by_key[key] = best_hit["ga_seq"]
 
         else:
             for seqid, model_name, i_e, bits in parse_domtbl(domtbl_path):
@@ -577,16 +540,14 @@ def main(argv: list[str] | None = None):
                 if model not in model_set:
                     continue
 
-                cutoff = cutmap_all.get(model)
-                if cutoff is not None:
-                    if bits < cutoff:
-                        continue
-                elif model not in warned_missing_cut and args.cutoffs:
+                ga = ga_by_model.get(model)
+                ga_seq = ga[0] if ga is not None else None
+                if ga_seq is None and model not in warned_missing_ga:
                     print(
-                        f"[warn] no cutoff found for HMM '{model}' in {args.cutoffs}; "
+                        f"[warn] no GA threshold found in HMM library for model '{model}'; "
                         "using only other filters for this model"
                     )
-                    warned_missing_cut.add(model)
+                    warned_missing_ga.add(model)
 
                 if args.min_bits is not None and bits < args.min_bits:
                     continue
@@ -606,8 +567,8 @@ def main(argv: list[str] | None = None):
                     evalues_by_key[key].append(i_e)
                 hdr = seqid_to_header.get(seqid, f">{seqid}")
                 headers_by_key[key].add(hdr)
-                if cutoff is not None and key not in thresh_by_key:
-                    thresh_by_key[key] = cutoff
+                if ga_seq is not None and key not in thresh_by_key:
+                    thresh_by_key[key] = ga_seq
 
     # Phase 3: write output
     out_path.parent.mkdir(parents=True, exist_ok=True)

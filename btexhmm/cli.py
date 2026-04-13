@@ -6,7 +6,6 @@ from .hmmscan import main as hmmscan_main
 
 HERE = Path(__file__).resolve().parent
 DEFAULT_HMM_LIB = HERE / "hmms" / "all_models.hmm"
-DEFAULT_CUTOFFS = HERE / "data" / "hmm_cutoffs.tsv"
 
 
 def parse_args():
@@ -97,8 +96,6 @@ def main():
         "--out", str(out_csv),
         "--cpus", str(args.cpus),
     ]
-    if DEFAULT_CUTOFFS.exists():
-        hmmscan_argv.extend(["--cutoffs", str(DEFAULT_CUTOFFS)])
     if args.skip_existing:
         hmmscan_argv.append("--skip-existing")
     if args.evalue:

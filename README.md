@@ -90,7 +90,7 @@ vis-btex --hmmscan /path/to/output_dir/btex_hmm_summary.csv \
 - You can also replace `all` with a specific sample name to visualize hits for a single sample. The sample name must exactly match the sample name in the input file.
 
 **Output:**
-- URLs for the visualization images are written to `KEGG_MAP_LINKS.txt` (By default, these links correspond to annotations on the KEGG pathway maps map00642, map00623, map00622, and map00362.).
+- URLs for the visualization images are written to `KEGG_MAP_LINKS.txt` (By default, these links correspond to annotations on the KEGG pathway maps map00642, map00623, map00622, and map00362.). 
 - The output directory also includes a legend file and a set of TSV files containing the KO equivalents of the BTEX-HMM hits.
 
 **For visualization of hits on Circos:**
@@ -105,6 +105,7 @@ run-circos \
 
 **Input:**
 - `run-circos` takes btex_hmm_summary.csv together with the genome sequence file for a single sample. In the example above, the genome sequence file for Aromatoleum bremense PbN1T in the test_genomes folder is used.
+- To display all hits identified by BTEX-HMMs, provide a sample name with -s that exactly matches the sample name in btex_hmm_summary.csv.
 
 **Output:**
 - `run-circos` generates .png and .pdf Circos plots, along with the Circos configuration files and supporting files used to produce the plots.
