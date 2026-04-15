@@ -1,9 +1,14 @@
 """CLI wrapper for the Circos visualization entry point."""
 
 import argparse
+import shlex
 import shutil
-import subprocess
 from pathlib import Path
+
+try:
+    from .logging_utils import command_logger, run_logged_command
+except ImportError:
+    from logging_utils import command_logger, run_logged_command
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -13,7 +18,7 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument(
         "--hmmscan",
         required=True,
-        help="CSV (btex_hmm_summary.csv): sample,hmm,hits,total_genes,hit_headers from hmmsearch.py.",
+        help="CSV (btex_hmm_summary.csv): hit-level hmmscan output with sample, hmm, and hit_header columns.",
     )
     ap.add_argument(
         "--contig-lengths",
@@ -30,6 +35,15 @@ def build_parser() -> argparse.ArgumentParser:
             "Path to the genome nucleotide FASTA (.fna/.fasta). "
             "Used to generate contig lengths when --contig-lengths is omitted."
         ),
+    )
+    ap.add_argument(
+        "--prodigal-gbk",
+        help="Optional Prodigal GenBank file for mapping KOfam hits to genomic coordinates.",
+    )
+    ap.add_argument(
+        "--kofam-output",
+        dest="kofam_output",
+        help="Optional KOfam hit table to pass through to the Circos R script.",
     )
     return ap
 
@@ -60,8 +74,16 @@ def main(argv=None):
         cmd += ["--contig-lengths", args.contig_lengths]
     if args.dna:
         cmd += ["--dna", args.dna]
+    if args.prodigal_gbk:
+        cmd += ["--prodigal-gbk", args.prodigal_gbk]
+    if args.kofam_output:
+        cmd += ["--kofam", args.kofam_output]
 
-    subprocess.run(cmd, check=True)
+    log_path = Path(args.outdir).expanduser().resolve() / "log_file_run-circos.txt"
+    with command_logger(log_path):
+        print(f"[info] writing run-circos log to {log_path}")
+        print(f"[cmd] {shlex.join(['run-circos', *[str(part) for part in cmd[2:]]])}")
+        run_logged_command(cmd)
 
     return 0
 

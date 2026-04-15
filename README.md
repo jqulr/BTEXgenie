@@ -11,6 +11,8 @@ The following packages are needed for visualization and analysis:
 - pip
 - Rscript
 - hmmer 3.3 or newer
+- prodigal
+- kofamscan
 - pandas 2.0 or newer
 - numpy 1.24 or newer
 - matplotlib 3.7 or newer
@@ -36,7 +38,15 @@ Activate the environment:
 conda activate btex-hmm
 ```
 
-Databse download:
+Confirm that the KOfamScan executable is installed:
+
+```bash
+command -v exec_annotation
+```
+
+If this prints nothing, KOfamScan is not available on your `PATH`.
+
+Database download:
 
 The KOfam HMM database can be installed for users interested in the broad metabolic or degradation potential of their genomes
 
@@ -64,6 +74,17 @@ export KOFAM_DB=/path/to/databases/kofam
 EOF
 ```
 
+Confirm the database path and executable:
+```bash
+conda deactivate
+conda activate btex-hmm
+echo $KOFAM_DB
+command -v exec_annotation
+```
+
+`KOFAM_DB` should point to the database directory containing `profiles/` and `ko_list`.
+`exec_annotation` is the KOfamScan program itself and must be installed separately from the database files. The Conda env files in this repo now include the `kofamscan` package so `exec_annotation` should be available after environment creation.
+
 <!-- The `btex_env.yml` file includes `pip install -e .`, so it installs the local repository in editable mode and creates the `annotate-btex`, `vis-btex`, and `run-circos` command-line entry points in the environment's `bin/` directory. -->
 
 <!-- ### End-user / release install
@@ -82,7 +103,7 @@ conda env create -n btex-hmm -f btex_env_release.yml
 
 This installs the packaged wheel from `./dist/` instead of the live source tree, which is more reproducible for end users. -->
 ## Usage
-To run BTEX-HMMs on genomes, input can be either a single protein coding file or a directory of protein files. 
+To run BTEX-HMMs, input should be a directory containing either genome DNA FASTA files or protein FASTA files.
 
 ## Example with protein files in *test_genomes*
 ```bash
@@ -91,13 +112,24 @@ annotate-btex -p btexhmm/test_genomes \
               --evalue 1e-5 \
               --cpus 8
 ```
+
+## Example with genome FASTA files
+```bash
+annotate-btex -p /path/to/genome_fastas \
+              -o path/to/output_dir \
+              -meta \
+              --cpus 8
+```
 **Outputs**
 - `btex_hmm_summary.csv` contains the output from running each input file against all the HMMs. 
+- `prodigal_output` contains predicted protein FASTA files when genome DNA inputs are provided.
 - `hmmscan_output` contains a sub-directory for each input file with the raw *.domtblout* output files produced before and after filtering by GA thresholds. 
+- `kofam_abv_thres.tsv` is written for each sample when the KOfam step runs successfully.
 
 **Notes:**
-- The `annotate-btex` command expects amino acid FASTA files as input. (If starting from genome assemblies, protein-coding sequences should be predicted first using a gene caller such as Prodigal)
-- By default, only single best-scoring HMM hit for each protein-coding region is reported. To retain all HMM hits per protein-coding region, user should enable the `--all-hits-per-protein` option. With this flag, multiple matches to different HMMs may be reported for the same protein.
+- The `annotate-btex` command accepts either genome DNA FASTA files or protein FASTA files, but all files in one run must be the same type.
+- For genome DNA inputs, `annotate-btex` runs Prodigal first and requires either `-meta` or `-single`.
+- BTEX-HMM reports the single best-scoring HMM hit per protein-coding region.
 
 ## Visualizations
 BTEX-HMM supports visualization of detected genes on KEGG pathway modules or Circos plot.
@@ -129,6 +161,14 @@ run-circos \
   --dna /test_genomes/Aromatoleum_bremense_PbN1T.fna \
   -o /path/to/output_dir \
   -s "Aromatoleum_bremense_PbN1T" 
+
+  run-circos \
+  --hmmscan /path/to/btex_hmm_summary.csv \
+  --dna /path/to/genome.fna \
+  --prodigal-gbk /path/to/sample_prodigal.gbk \
+  --kofam-output /path/to/kofam_abv_thres.tsv \
+  -o /path/to/outdir \
+  -s sample_name
 ```
 
 **Input:**

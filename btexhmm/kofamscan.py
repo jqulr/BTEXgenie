@@ -65,6 +65,20 @@ def resolve_ko_list(db_dir: Path) -> Path:
     )
 
 
+def validate_kofam_db(db_dir: Path) -> Path:
+    profiles_dir = db_dir / "profiles"
+    if not profiles_dir.is_dir():
+        raise SystemExit(
+            f"[err] Invalid KOFAM_DB: expected '{profiles_dir}' to exist."
+        )
+
+    ko_list = resolve_ko_list(db_dir)
+    print(f"[info] KOfam database detected: {db_dir}")
+    print(f"[info] profiles dir: {profiles_dir}")
+    print(f"[info] ko list     : {ko_list}")
+    return ko_list
+
+
 def iter_input_fastas(genomes_dir: Path):
     processed = False
 
@@ -139,10 +153,7 @@ def main(argv=None):
         )
 
     db_dir = Path(args.db_dir).resolve()
-    profiles_dir = db_dir / "profiles"
-    if not profiles_dir.is_dir():
-        raise SystemExit(f"[err] profiles directory not found: {profiles_dir}")
-    ko_list = resolve_ko_list(db_dir)
+    ko_list = validate_kofam_db(db_dir)
 
     print("Starting KOfamScan above-threshold annotation")
     print("-------------------------------------------")

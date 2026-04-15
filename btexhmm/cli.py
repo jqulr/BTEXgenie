@@ -1,8 +1,9 @@
-# btexhmm/cli.py
 import argparse
+import shlex
 from pathlib import Path
 
 from .hmmscan import main as hmmscan_main
+from .logging_utils import command_logger
 
 HERE = Path(__file__).resolve().parent
 DEFAULT_HMM_LIB = HERE / "hmms" / "all_models.hmm"
@@ -81,4 +82,24 @@ def main():
     if args.evalue:
         hmmscan_argv.extend(["--evalue", str(args.evalue)])
 
-    hmmscan_main(hmmscan_argv)
+    top_cmd = [
+        "annotate-btex",
+        "-p",
+        str(proteins),
+        "-o",
+        str(outdir),
+        "--cpus",
+        str(args.cpus),
+    ]
+    if args.prodigal_mode == "meta":
+        top_cmd.append("-meta")
+    elif args.prodigal_mode == "single":
+        top_cmd.append("-single")
+    if args.evalue:
+        top_cmd.extend(["--evalue", str(args.evalue)])
+
+    log_path = outdir / "log_file_annotate-btex.txt"
+    with command_logger(log_path):
+        print(f"[info] writing annotate-btex log to {log_path}")
+        print(f"[cmd] {shlex.join(top_cmd)}")
+        hmmscan_main(hmmscan_argv)

@@ -1,7 +1,12 @@
 import argparse
+import shlex
 import shutil
-import subprocess
 from pathlib import Path
+
+try:
+    from .logging_utils import command_logger, run_logged_command
+except ImportError:
+    from logging_utils import command_logger, run_logged_command
 
 
 DEFAULT_PATHWAYS = "00642,00623,00622,00362"
@@ -17,7 +22,7 @@ def parse_args():
     p.add_argument(
         "--hmmscan",
         required=True,
-        help="Path to hmmscan summary CSV (must contain sample, hmm, and hits columns).",
+        help="Path to hmmscan output CSV (must contain at least sample and hmm columns).",
     )
     p.add_argument(
         "-s",
@@ -80,7 +85,11 @@ def main():
         "--outdir",
         str(outdir),
     ]
+    log_path = outdir / "log_file_vis-btex.txt"
     try:
-        subprocess.run(cmd, check=True)
+        with command_logger(log_path):
+            print(f"[info] writing vis-btex log to {log_path}")
+            print(f"[cmd] {shlex.join(['vis-btex', *[str(part) for part in cmd[2:]]])}")
+            run_logged_command(cmd)
     except subprocess.CalledProcessError as exc:
         raise SystemExit(exc.returncode)

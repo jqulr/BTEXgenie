@@ -3,6 +3,11 @@ import argparse, csv, re, subprocess, sys
 from pathlib import Path
 from collections import defaultdict
 
+try:
+    from .logging_utils import run_logged_command
+except ImportError:
+    from logging_utils import run_logged_command
+
 # This script runs hmmscan on all the HMMs with input protein-coding files and outputs detailed TSV 
 # summary with columns: sample, hmm, hits, scores, ievalues, cutoff_used, total_genes, hit_headers.
 # The cutoff_used column is retained for compatibility and stores the model's
@@ -19,12 +24,6 @@ from collections import defaultdict
 DNA_EXTENSIONS = {".fna", ".fa", ".fasta"}
 PROTEIN_EXTENSIONS = {".faa", ".aa", ".pep"}
 DOMTBL_SUBDIR = "hmmscan_output"
-
-def sh(cmd, quiet=False):
-    if not quiet:
-        print("[cmd]", " ".join(cmd), flush=True)
-    # Silence hmmscan output; rely on return codes for errors
-    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def check_bin(name):
@@ -309,8 +308,7 @@ def run_prodigal_for_inputs(
             "-p",
             prodigal_mode,
         ]
-        print("[cmd]", " ".join(cmd), flush=True)
-        subprocess.run(cmd, check=True)
+        run_logged_command(cmd)
         protein_fastas.append(out_faa)
 
     return protein_fastas, prodigal_root
@@ -368,7 +366,7 @@ def run_hmmscan_for_sample(
         cmd_pre += ["-E", str(evalue)]
     cmd_pre += ["--domtblout", str(out_dom_pre), str(hmm_lib), str(protein_faa)]
     try:
-        sh(cmd_pre, quiet=True)
+        run_logged_command(cmd_pre)
     except subprocess.CalledProcessError as e:
         print(
             f"[err] hmmscan (pre-GA) failed for {protein_faa.name} with code {e.returncode}",
@@ -399,15 +397,15 @@ def run_kofam_for_inputs(proteins_path: Path, cpus: int) -> None:
         str(cpus),
     ]
     print(f"[*] starting KOfam search on {proteins_path}")
-    print("[cmd]", " ".join(cmd), flush=True)
-    subprocess.run(cmd, check=True)
+    run_logged_command(cmd)
 
 
 def main(argv: list[str] | None = None):
     ap = argparse.ArgumentParser(
         description=(
             "Run hmmscan vs protein FASTAs using a concatenated HMM library, "
-            "writing sample,hmm,hits,scores,ievalues,cutoff_used,total_genes,hit_headers. "
+            "writing one row per best protein hit as "
+            "sample,hmm,score,ievalue,cutoff_used,hit_header. "
             "Sample name is taken from the FASTA basename. "
             "GA thresholds are read from each HMM in the concatenated library."
         )
@@ -447,7 +445,7 @@ def main(argv: list[str] | None = None):
     ap.add_argument(
         "--out",
         required=True,
-        help="CSV path for output counts (sample,hmm,hits,scores,ievalues,cutoff_used,total_genes,hit_headers)",
+        help="CSV path for hit-level output (sample,hmm,score,ievalue,cutoff_used,hit_header)",
     )
     args = ap.parse_args(argv)
 
@@ -493,7 +491,6 @@ def main(argv: list[str] | None = None):
             print("[warn] ignoring Prodigal mode flag because protein FASTA inputs were provided")
 
     header_maps: dict[str, dict[str, str]] = {}
-    total_genes: dict[str, int] = {}
     samples: list[str] = []
 
     # Phase 1: ensure per-sample domtbl exists (one hmmscan per sample)
@@ -513,14 +510,10 @@ def main(argv: list[str] | None = None):
 
         mp = load_headers_for_fasta(protein_faa)
         header_maps[sample] = mp
-        total_genes[sample] = len(mp)
 
-    # Phase 2: parse domtbls and build counts/scores
-    counts = defaultdict(int)
-    headers_by_key = defaultdict(set)
-    scores_by_key = defaultdict(list)
-    evalues_by_key = defaultdict(list)
-    thresh_by_key = {}
+    # Phase 2: parse domtbls and build one output row per best protein hit
+    output_rows: list[list[str | float]] = []
+    count_rows: dict[tuple[str, str], dict[str, str | float | int]] = {}
     warned_missing_ga = set()
 
     for sample in samples:
@@ -563,14 +556,28 @@ def main(argv: list[str] | None = None):
             if not hit_list:
                 continue
             best_hit = max(hit_list, key=lambda h: h["diff"])
-            key = (sample, best_hit["model"])
-            counts[key] += 1
-            scores_by_key[key].append(best_hit["bits"])
-            evalues_by_key[key].append(best_hit["i_e"])
             hdr = seqid_to_header.get(seqid, f">{seqid}")
-            headers_by_key[key].add(hdr)
-            if best_hit["ga_seq"] is not None and key not in thresh_by_key:
-                thresh_by_key[key] = best_hit["ga_seq"]
+            output_rows.append(
+                [
+                    sample,
+                    best_hit["model"],
+                    best_hit["bits"],
+                    best_hit["i_e"],
+                    best_hit["ga_seq"] if best_hit["ga_seq"] is not None else "",
+                    hdr,
+                ]
+            )
+            key = (sample, best_hit["model"])
+            if key not in count_rows:
+                count_rows[key] = {
+                    "sample": sample,
+                    "hmm": best_hit["model"],
+                    "score": str(best_hit["bits"]),
+                    "ievalue": str(best_hit["i_e"]),
+                    "cutoff_used": best_hit["ga_seq"] if best_hit["ga_seq"] is not None else "",
+                    "count": 0,
+                }
+            count_rows[key]["count"] = int(count_rows[key]["count"]) + 1
 
     # Phase 3: write output
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -580,29 +587,44 @@ def main(argv: list[str] | None = None):
             [
                 "sample",
                 "hmm",
-                "hits",
-                "scores",
-                "ievalues",
+                "score",
+                "ievalue",
                 "cutoff_used",
-                "total_genes",
-                "hit_headers",
+                "hit_header",
             ]
         )
-        for sample in samples:
-            tg = total_genes.get(sample, 0)
-            for hmm in sorted(model_set):
-                key = (sample, hmm)
-                val = int(counts.get(key, 0))
-                scores_list = scores_by_key.get(key, [])
-                scores_joined = "|".join(str(s) for s in scores_list) if scores_list else ""
-                evalues_list = evalues_by_key.get(key, [])
-                evalues_joined = "|".join(str(ev) for ev in evalues_list) if evalues_list else ""
-                thresh_val = thresh_by_key.get(key, "")
-                headers_list = sorted(headers_by_key.get(key, set()))
-                headers_joined = "|".join(headers_list) if headers_list else ""
-                w.writerow([sample, hmm, val, scores_joined, evalues_joined, thresh_val, tg, headers_joined])
+        for row in sorted(output_rows, key=lambda r: (str(r[0]), str(r[1]), str(r[5]))):
+            w.writerow(row)
 
     print(f"wrote {out_path}")
+
+    counts_path = out_path.with_name("btex_hmm_summary_counts.csv")
+    with open(counts_path, "w", newline="") as fw:
+        w = csv.writer(fw)
+        w.writerow(
+            [
+                "sample",
+                "hmm",
+                "score",
+                "ievalue",
+                "cutoff_used",
+                "count",
+            ]
+        )
+        for key in sorted(count_rows):
+            row = count_rows[key]
+            w.writerow(
+                [
+                    row["sample"],
+                    row["hmm"],
+                    row["score"],
+                    row["ievalue"],
+                    row["cutoff_used"],
+                    row["count"],
+                ]
+            )
+
+    print(f"wrote {counts_path}")
 
     if args.skip_kofam:
         print("[info] skipping KOfam search (--skip-kofam)")
