@@ -12,9 +12,13 @@ from collections import defaultdict
 # Example:
 # python /home/juneq/Toluene-HMM/btexhmm/hmmscan.py \
 #   --hmm-lib /home/juneq/Toluene-HMM/btexhmm/hmms/all_models.hmm \
-#   --proteins-dir /home/juneq/Toluene-HMM/btexhmm/test_genomes \
+#   --genomes-dir /home/juneq/Toluene-HMM/btexhmm/test_genomes \
 #   --out /home/juneq/Toluene_test/test_output/hmmscan_summary.csv \
 #   --cpus 8
+
+DNA_EXTENSIONS = {".fna", ".fa", ".fasta"}
+PROTEIN_EXTENSIONS = {".faa", ".aa", ".pep"}
+DOMTBL_SUBDIR = "hmmscan_output"
 
 def sh(cmd, quiet=False):
     if not quiet:
@@ -135,11 +139,11 @@ def parse_domtbl(path: Path):
     return rows
 
 
-def find_input_files(proteins_path: Path) -> list[Path]:
-    if proteins_path.is_file():
-        return [proteins_path]
-    if proteins_path.is_dir():
-        return [p for p in sorted(proteins_path.iterdir()) if p.is_file()]
+def find_input_files(input_path: Path) -> list[Path]:
+    if input_path.is_file():
+        return [input_path]
+    if input_path.is_dir():
+        return [p for p in sorted(input_path.iterdir()) if p.is_file()]
     return []
 
 
@@ -194,6 +198,124 @@ def validate_protein_fasta(path: Path) -> tuple[bool, str]:
     return True, ""
 
 
+def validate_dna_fasta(path: Path) -> tuple[bool, str]:
+    """
+    Validate that a file is FASTA and contains only nucleotide-like residue symbols.
+    Returns (ok, reason_if_not_ok).
+    """
+    allowed = set("ACGTRYSWKMBDHVNU-.")
+    saw_header = False
+    saw_seq = False
+    saw_alpha = False
+    try:
+        with open(path, "rt", errors="ignore") as fh:
+            for raw in fh:
+                line = raw.strip()
+                if not line:
+                    continue
+                if line.startswith(">"):
+                    saw_header = True
+                    continue
+                if not saw_header:
+                    return False, "missing FASTA header line starting with '>'"
+                saw_seq = True
+                seq = line.replace(" ", "").upper()
+                bad = [c for c in seq if c not in allowed]
+                if bad:
+                    return False, f"contains non-DNA residue character(s): {''.join(sorted(set(bad)))}"
+                if any(c.isalpha() for c in seq):
+                    saw_alpha = True
+    except OSError as e:
+        return False, f"cannot read file: {e}"
+
+    if not saw_header:
+        return False, "no FASTA headers found"
+    if not saw_seq:
+        return False, "no sequence lines found"
+    if not saw_alpha:
+        return False, "no nucleotide sequence characters found"
+    return True, ""
+
+
+def detect_sequence_kind(path: Path) -> tuple[str | None, str]:
+    suffix = path.suffix.lower()
+    if suffix in PROTEIN_EXTENSIONS:
+        ok, reason = validate_protein_fasta(path)
+        return ("protein", "") if ok else (None, reason)
+    if suffix == ".fna":
+        ok, reason = validate_dna_fasta(path)
+        return ("dna", "") if ok else (None, reason)
+    if suffix in DNA_EXTENSIONS:
+        protein_ok, _ = validate_protein_fasta(path)
+        if protein_ok:
+            return "protein", ""
+        dna_ok, dna_reason = validate_dna_fasta(path)
+        if dna_ok:
+            return "dna", ""
+        return None, dna_reason
+    return None, f"unsupported file extension: {suffix or '<none>'}"
+
+
+def classify_inputs(input_files: list[Path]) -> tuple[str, list[Path]]:
+    classified: list[tuple[Path, str]] = []
+    skipped = 0
+    for path in input_files:
+        kind, reason = detect_sequence_kind(path)
+        if kind is None:
+            print(f"[warn] skipping {path.name}: {reason}")
+            skipped += 1
+            continue
+        classified.append((path, kind))
+
+    if not classified:
+        raise SystemExit("[err] no valid FASTA inputs found after validation")
+
+    kinds = {kind for _, kind in classified}
+    if len(kinds) != 1:
+        raise SystemExit("[err] mixed DNA and protein inputs in one run are not supported")
+
+    input_kind = classified[0][1]
+    kept_files = [path for path, _ in classified]
+    if skipped:
+        print(f"[info] retained {len(kept_files)} validated {input_kind} input file(s)")
+    return input_kind, kept_files
+
+
+def run_prodigal_for_inputs(
+    genome_fastas: list[Path],
+    output_root: Path,
+    prodigal_mode: str,
+) -> tuple[list[Path], Path]:
+    prodigal_root = output_root / "prodigal_output"
+    prodigal_root.mkdir(parents=True, exist_ok=True)
+
+    protein_fastas: list[Path] = []
+    for genome_fna in genome_fastas:
+        sample = genome_fna.stem
+        sample_dir = prodigal_root / sample
+        sample_dir.mkdir(parents=True, exist_ok=True)
+        out_faa = sample_dir / f"{sample}.faa"
+        out_gbk = sample_dir / f"{sample}_prodigal.gbk"
+
+        print(f"[*] Prodigal gene calling ({prodigal_mode}) on {genome_fna.name}")
+        cmd = [
+            "prodigal",
+            "-i",
+            str(genome_fna),
+            "-a",
+            str(out_faa),
+            "-o",
+            str(out_gbk),
+            "-p",
+            prodigal_mode,
+        ]
+        print("[cmd]", " ".join(cmd), flush=True)
+        subprocess.run(cmd, check=True)
+        protein_fastas.append(out_faa)
+
+    return protein_fastas, prodigal_root
+
+
 def load_headers_for_fasta(protein_faa: Path) -> dict[str, str]:
     """
     Build mapping from sequence id -> full header line (including leading '>') for a single FASTA.
@@ -214,15 +336,12 @@ def load_headers_for_fasta(protein_faa: Path) -> dict[str, str]:
 
 
 def run_hmmscan_for_sample(
-    gdir: Path,
     protein_faa: Path,
     hmm_lib: Path,
     domtbl_dir: Path,
     cpus: int,
     evalue: str | None,
-    domevalue: str | None,
     ga_by_model: dict[str, tuple[float, float]],
-    skip_existing: bool,
 ):
     """
     Run hmmscan once per sample against the concatenated HMM library.
@@ -241,20 +360,12 @@ def run_hmmscan_for_sample(
     sample = protein_faa.stem
     out_dom_pre = domtbl_dir / f"{sample}.pre_ga.domtblout"
     out_dom_ga = domtbl_dir / f"{sample}.ga.domtblout"
-    if skip_existing:
-        if (
-            out_dom_pre.exists() and out_dom_pre.stat().st_size > 0
-            and out_dom_ga.exists() and out_dom_ga.stat().st_size > 0
-        ):
-            return
 
     # 1) Always write unfiltered domtbl (before GA).
     print(f"[info] running hmmscan on {protein_faa.name}")
     cmd_pre = ["hmmscan", "--cpu", str(cpus)]
     if evalue:
         cmd_pre += ["-E", str(evalue)]
-    if domevalue:
-        cmd_pre += ["--domE", str(domevalue)]
     cmd_pre += ["--domtblout", str(out_dom_pre), str(hmm_lib), str(protein_faa)]
     try:
         sh(cmd_pre, quiet=True)
@@ -269,15 +380,27 @@ def run_hmmscan_for_sample(
     filter_domtbl_to_ga(out_dom_pre, out_dom_ga, ga_by_model)
 
 
-def parse_models_arg(models_arg: str | None) -> set[str] | None:
-    """
-    Accepts comma/space separated names; returns a set or None if not provided.
-    """
-    if not models_arg:
-        return None
-    toks = re.split(r"[,\s]+", models_arg.strip())
-    sel = {t for t in (x.strip() for x in toks) if t}
-    return sel or None
+def run_kofam_for_inputs(proteins_path: Path, cpus: int) -> None:
+    kofam_script = Path(__file__).resolve().with_name("kofamscan.py")
+    if not kofam_script.exists():
+        raise SystemExit(f"[err] KOfam wrapper not found: {kofam_script}")
+    if not proteins_path.is_dir():
+        print(
+            f"[warn] skipping KOfam search because input is not a directory: {proteins_path}"
+        )
+        return
+
+    cmd = [
+        sys.executable,
+        str(kofam_script),
+        "--genomes-dir",
+        str(proteins_path.resolve()),
+        "--cpus",
+        str(cpus),
+    ]
+    print(f"[*] starting KOfam search on {proteins_path}")
+    print("[cmd]", " ".join(cmd), flush=True)
+    subprocess.run(cmd, check=True)
 
 
 def main(argv: list[str] | None = None):
@@ -289,158 +412,103 @@ def main(argv: list[str] | None = None):
             "GA thresholds are read from each HMM in the concatenated library."
         )
     )
-    ap.add_argument("--hmm-dir", required=False, help="directory with individual *.hmm (for model name list; optional if --hmm-lib contains names)")
     ap.add_argument("--hmm-lib", required=True, help="concatenated HMM library for hmmscan")
     ap.add_argument(
-        "--proteins",
-        "--proteins-dir",
         "--genomes-dir",
-        dest="proteins",
+        dest="genomes_dir",
         required=True,
         help=(
-            "Directory containing protein FASTA files, or a single protein FASTA file. "
-            "Supports legacy alias --genomes-dir."
+            "Directory containing either genome DNA FASTA files or protein FASTA files. "
+            "Input files must all be the same type."
         ),
-    )
-    ap.add_argument(
-        "--domtbl-subdir",
-        default="hmmscan_output",
-        help="subfolder under the --out directory to store per-sample domtbl outputs (e.g., hmmscan_output/<sample>/<sample>.domtblout)",
     )
     ap.add_argument("--cpus", type=int, default=8, help="threads for hmmscan")
     ap.add_argument("--evalue", type=str, default=None, help="sequence E-value cutoff for reporting, e.g. 1e-5")
-    ap.add_argument(
-        "--domevalue",
-        type=str,
-        default=None,
-        help="domain E-value cutoff for reporting and for filtering parsed hits, e.g. 1e-5",
+    prodigal_group = ap.add_mutually_exclusive_group()
+    prodigal_group.add_argument(
+        "-meta",
+        dest="prodigal_mode",
+        action="store_const",
+        const="meta",
+        help="use Prodigal meta mode when DNA genomes are provided",
     )
-    ap.add_argument("--min-bits", type=float, default=None, help="optional min bit score when counting")
-    ap.add_argument("--max-ie", type=float, default=None, help="optional max i-Evalue when counting")
-    ap.add_argument("--unique-per-seq", action="store_true", help="count at most one hit per sequence per HMM")
-    ap.add_argument(
-        "--skip-existing",
-        action="store_true",
-        help="skip running hmmscan if sample domtbl already exists",
+    prodigal_group.add_argument(
+        "-single",
+        dest="prodigal_mode",
+        action="store_const",
+        const="single",
+        help="use Prodigal single mode when DNA genomes are provided",
     )
     ap.add_argument(
-        "--all-hits-per-protein",
+        "--skip-kofam",
         action="store_true",
-        help=(
-            "Count all HMM hits for a protein that pass filters. "
-            "Default is to count only the single best-scoring HMM hit per protein."
-        ),
+        help="do not run the KOfam search step after hmmscan completes",
     )
     ap.add_argument(
         "--out",
         required=True,
         help="CSV path for output counts (sample,hmm,hits,scores,ievalues,cutoff_used,total_genes,hit_headers)",
     )
-    ap.add_argument(
-        "--models",
-        default=None,
-        help=(
-            "Optional comma/space separated list of HMM names (stems) to count, e.g. 'TmoA,TmoB'. "
-            "If omitted, reports all models found in --hmm-dir."
-        ),
-    )
-    ap.add_argument(
-        "--fallback-domtbl-root",
-        default=None,
-        help=(
-            "Optional root containing per-sample domtbl folders: "
-            "<root>/<sample>/domtbl/*.domtblout or *.domtbl (used if local domtbl missing)"
-        ),
-    )
     args = ap.parse_args(argv)
 
     check_bin("hmmscan")
 
     hmm_lib = Path(args.hmm_lib)
-    proteins_path = Path(args.proteins)
+    genomes_dir = Path(args.genomes_dir)
     ga_by_model = read_ga_thresholds_from_hmm_lib(hmm_lib)
 
-    source_desc = ""
     out_path = Path(args.out)
     output_root = out_path.parent if out_path.parent != Path("") else Path(".")
 
-    # Load model names either from hmm-dir (preferred) or from the concatenated hmm-lib
-    if args.hmm_dir:
-        hmm_dir = Path(args.hmm_dir)
-        all_hmm_files = sorted(hmm_dir.glob("*.hmm"))
-        if not all_hmm_files:
-            raise SystemExit(f"[err] no *.hmm in {hmm_dir}")
-        all_model_names = [h.stem for h in all_hmm_files]
-        source_desc = f"hmm_dir={hmm_dir}"
-    else:
-        if not hmm_lib.exists():
-            raise SystemExit(f"[err] HMM library not found: {hmm_lib}")
-        all_model_names = read_names_from_hmm_lib(hmm_lib)
-        if not all_model_names:
-            raise SystemExit(f"[err] no model names found in HMM library: {hmm_lib}")
-        source_desc = f"hmm_lib={hmm_lib}"
-    all_model_set = set(all_model_names)
+    if not hmm_lib.exists():
+        raise SystemExit(f"[err] HMM library not found: {hmm_lib}")
+    all_model_names = read_names_from_hmm_lib(hmm_lib)
+    if not all_model_names:
+        raise SystemExit(f"[err] no model names found in HMM library: {hmm_lib}")
+    model_set = set(all_model_names)
 
-    # Resolve model selection (subset) if provided
-    selected = parse_models_arg(args.models)
-    if selected is not None:
-        unknown = sorted(selected - all_model_set)
-        if unknown:
-            print(f"[warn] --models includes names not found in {source_desc}: {', '.join(unknown)}")
-        model_set = selected & all_model_set
-        if not model_set:
-            raise SystemExit("[err] none of the requested --models were found in the provided HMM source")
-    else:
-        model_set = all_model_set
+    print(f"[*] tracking {len(model_set)} HMM(s) from hmm_lib={hmm_lib}: {', '.join(sorted(model_set))}")
 
-    print(f"[*] tracking {len(model_set)} HMM(s) from {source_desc}: {', '.join(sorted(model_set))}")
-
-    protein_fastas = find_input_files(proteins_path)
-    if not protein_fastas:
+    input_files = find_input_files(genomes_dir)
+    if not input_files:
         raise SystemExit(
-            f"[err] no input files found in {proteins_path}"
+            f"[err] no input files found in {genomes_dir}"
         )
-    valid_protein_fastas = []
-    for protein_faa in protein_fastas:
-        ok, reason = validate_protein_fasta(protein_faa)
-        if not ok:
-            print(f"[warn] skipping {protein_faa.name}: not a proper protein sequence file ({reason})")
-            continue
-        valid_protein_fastas.append(protein_faa)
-
-    if not valid_protein_fastas:
-        raise SystemExit("[err] no valid protein FASTA inputs found after validation")
-
-    # Apply an i-Evalue threshold when counting: prefer explicit --max-ie, else reuse --domevalue if numeric
-    max_ie = args.max_ie
-    if max_ie is None and args.domevalue is not None:
-        try:
-            max_ie = float(args.domevalue)
-        except ValueError:
-            print(f"[warn] unable to parse --domevalue={args.domevalue!r} as float; ignoring for filtering")
+    input_kind, validated_inputs = classify_inputs(input_files)
+    if input_kind == "dna":
+        if args.prodigal_mode is None:
+            raise SystemExit(
+                "[err] DNA genome inputs detected. Use either -meta or -single to choose the Prodigal mode."
+            )
+        check_bin("prodigal")
+        protein_fastas, kofam_input_dir = run_prodigal_for_inputs(
+            genome_fastas=validated_inputs,
+            output_root=output_root,
+            prodigal_mode=args.prodigal_mode,
+        )
+    else:
+        protein_fastas = validated_inputs
+        kofam_input_dir = genomes_dir.resolve() if genomes_dir.is_dir() else genomes_dir.parent.resolve()
+        if args.prodigal_mode is not None:
+            print("[warn] ignoring Prodigal mode flag because protein FASTA inputs were provided")
 
     header_maps: dict[str, dict[str, str]] = {}
     total_genes: dict[str, int] = {}
-    sample_parent: dict[str, Path] = {}
     samples: list[str] = []
 
     # Phase 1: ensure per-sample domtbl exists (one hmmscan per sample)
-    for protein_faa in valid_protein_fastas:
+    for protein_faa in protein_fastas:
         sample = protein_faa.stem
         samples.append(sample)
-        sample_parent[sample] = protein_faa.parent
 
-        domtbl_dir = output_root / args.domtbl_subdir / sample
+        domtbl_dir = output_root / DOMTBL_SUBDIR / sample
         run_hmmscan_for_sample(
-            gdir=protein_faa.parent,
             protein_faa=protein_faa,
             hmm_lib=hmm_lib,
             domtbl_dir=domtbl_dir,
             cpus=args.cpus,
             evalue=args.evalue,
-            domevalue=args.domevalue,
             ga_by_model=ga_by_model,
-            skip_existing=args.skip_existing,
         )
 
         mp = load_headers_for_fasta(protein_faa)
@@ -448,7 +516,7 @@ def main(argv: list[str] | None = None):
         total_genes[sample] = len(mp)
 
     # Phase 2: parse domtbls and build counts/scores
-    counts = defaultdict(set) if args.unique_per_seq else defaultdict(int)
+    counts = defaultdict(int)
     headers_by_key = defaultdict(set)
     scores_by_key = defaultdict(list)
     evalues_by_key = defaultdict(list)
@@ -456,119 +524,53 @@ def main(argv: list[str] | None = None):
     warned_missing_ga = set()
 
     for sample in samples:
-        gdir = sample_parent.get(sample)
-        if gdir is None:
-            continue
-
-        domtbl_dir = output_root / args.domtbl_subdir / sample
+        domtbl_dir = output_root / DOMTBL_SUBDIR / sample
         domtbl_path = domtbl_dir / f"{sample}.ga.domtblout"
-
-        # Fallback to external root if local domtbl missing
-        if not domtbl_path.exists() and args.fallback_domtbl_root:
-            fbdir = Path(args.fallback_domtbl_root) / sample / "domtbl"
-            if fbdir.exists():
-                fb_candidates = (
-                    sorted(fbdir.glob("*.ga.domtblout"))
-                    or sorted(fbdir.glob("*.domtblout"))
-                    or sorted(fbdir.glob("*.domtbl"))
-                )
-                if fb_candidates:
-                    domtbl_path = fb_candidates[0]
-                    print(f"[info] using fallback domtbl for {sample} from {domtbl_path}")
         if not domtbl_path.exists():
             print(f"[info] no domtbl for {sample}; skipping")
             continue
 
         seqid_to_header = header_maps.get(sample, {})
 
-        if not args.all_hits_per_protein:
-            hits_per_protein = defaultdict(list)
-            for seqid, model_name, i_e, bits in parse_domtbl(domtbl_path):
-                model = model_name
-                if model not in model_set:
-                    continue
+        hits_per_protein = defaultdict(list)
+        for seqid, model_name, i_e, bits in parse_domtbl(domtbl_path):
+            model = model_name
+            if model not in model_set:
+                continue
 
-                ga = ga_by_model.get(model)
-                ga_seq = ga[0] if ga is not None else None
-                if ga_seq is None and model not in warned_missing_ga:
-                    print(
-                        f"[warn] no GA threshold found in HMM library for model '{model}'; "
-                        "using only other filters for this model"
-                    )
-                    warned_missing_ga.add(model)
-
-                if args.min_bits is not None and bits < args.min_bits:
-                    continue
-                if max_ie is not None and i_e > max_ie:
-                    continue
-
-                diff_score = bits - (ga_seq if ga_seq is not None else 0.0)
-                hits_per_protein[seqid].append(
-                    {
-                        "model": model,
-                        "seqid": seqid,
-                        "diff": diff_score,
-                        "bits": bits,
-                        "i_e": i_e,
-                        "ga_seq": ga_seq,
-                    }
+            ga = ga_by_model.get(model)
+            ga_seq = ga[0] if ga is not None else None
+            if ga_seq is None and model not in warned_missing_ga:
+                print(
+                    f"[warn] no GA threshold found in HMM library for model '{model}'; "
+                    "using only other filters for this model"
                 )
+                warned_missing_ga.add(model)
 
-            for seqid, hit_list in hits_per_protein.items():
-                if not hit_list:
-                    continue
-                best_hit = max(hit_list, key=lambda h: h["diff"])
-                key = (sample, best_hit["model"])
-                if args.unique_per_seq:
-                    before = len(counts[key])
-                    counts[key].add(seqid)
-                    if len(counts[key]) > before:
-                        scores_by_key[key].append(best_hit["bits"])
-                        evalues_by_key[key].append(best_hit["i_e"])
-                else:
-                    counts[key] += 1
-                    scores_by_key[key].append(best_hit["bits"])
-                    evalues_by_key[key].append(best_hit["i_e"])
-                hdr = seqid_to_header.get(seqid, f">{seqid}")
-                headers_by_key[key].add(hdr)
-                if best_hit["ga_seq"] is not None and key not in thresh_by_key:
-                    thresh_by_key[key] = best_hit["ga_seq"]
+            diff_score = bits - (ga_seq if ga_seq is not None else 0.0)
+            hits_per_protein[seqid].append(
+                {
+                    "model": model,
+                    "seqid": seqid,
+                    "diff": diff_score,
+                    "bits": bits,
+                    "i_e": i_e,
+                    "ga_seq": ga_seq,
+                }
+            )
 
-        else:
-            for seqid, model_name, i_e, bits in parse_domtbl(domtbl_path):
-                model = model_name
-                if model not in model_set:
-                    continue
-
-                ga = ga_by_model.get(model)
-                ga_seq = ga[0] if ga is not None else None
-                if ga_seq is None and model not in warned_missing_ga:
-                    print(
-                        f"[warn] no GA threshold found in HMM library for model '{model}'; "
-                        "using only other filters for this model"
-                    )
-                    warned_missing_ga.add(model)
-
-                if args.min_bits is not None and bits < args.min_bits:
-                    continue
-                if max_ie is not None and i_e > max_ie:
-                    continue
-
-                key = (sample, model)
-                if args.unique_per_seq:
-                    before = len(counts[key])
-                    counts[key].add(seqid)
-                    if len(counts[key]) > before:
-                        scores_by_key[key].append(bits)
-                        evalues_by_key[key].append(i_e)
-                else:
-                    counts[key] += 1
-                    scores_by_key[key].append(bits)
-                    evalues_by_key[key].append(i_e)
-                hdr = seqid_to_header.get(seqid, f">{seqid}")
-                headers_by_key[key].add(hdr)
-                if ga_seq is not None and key not in thresh_by_key:
-                    thresh_by_key[key] = ga_seq
+        for seqid, hit_list in hits_per_protein.items():
+            if not hit_list:
+                continue
+            best_hit = max(hit_list, key=lambda h: h["diff"])
+            key = (sample, best_hit["model"])
+            counts[key] += 1
+            scores_by_key[key].append(best_hit["bits"])
+            evalues_by_key[key].append(best_hit["i_e"])
+            hdr = seqid_to_header.get(seqid, f">{seqid}")
+            headers_by_key[key].add(hdr)
+            if best_hit["ga_seq"] is not None and key not in thresh_by_key:
+                thresh_by_key[key] = best_hit["ga_seq"]
 
     # Phase 3: write output
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -590,10 +592,7 @@ def main(argv: list[str] | None = None):
             tg = total_genes.get(sample, 0)
             for hmm in sorted(model_set):
                 key = (sample, hmm)
-                if args.unique_per_seq:
-                    val = len(counts.get(key, set()))
-                else:
-                    val = int(counts.get(key, 0))
+                val = int(counts.get(key, 0))
                 scores_list = scores_by_key.get(key, [])
                 scores_joined = "|".join(str(s) for s in scores_list) if scores_list else ""
                 evalues_list = evalues_by_key.get(key, [])
@@ -604,6 +603,16 @@ def main(argv: list[str] | None = None):
                 w.writerow([sample, hmm, val, scores_joined, evalues_joined, thresh_val, tg, headers_joined])
 
     print(f"wrote {out_path}")
+
+    if args.skip_kofam:
+        print("[info] skipping KOfam search (--skip-kofam)")
+    else:
+        try:
+            run_kofam_for_inputs(kofam_input_dir, args.cpus)
+        except subprocess.CalledProcessError as e:
+            raise SystemExit(
+                f"[err] KOfam search failed with exit code {e.returncode}"
+            ) from e
 
 
 if __name__ == "__main__":

@@ -36,6 +36,34 @@ Activate the environment:
 conda activate btex-hmm
 ```
 
+Databse download:
+
+The KOfam HMM database can be installed for users interested in the broad metabolic or degradation potential of their genomes
+
+Database Download:
+
+```bash
+mkdir /path/to/databases/kofam
+cd /path/to/databases/kofam
+
+wget https://www.genome.jp/ftp/db/kofam/ko_list.gz
+wget https://www.genome.jp/ftp/db/kofam/profiles.tar.gz
+
+gunzip ko_list.gz
+tar -xzf profiles.tar.gz
+```
+
+Setting the environment variable:
+
+```bash
+# shell scripts placed in activate.d folder to run automatically when env is activated
+mkdir -p $CONDA_PREFIX/etc/conda/activate.d
+
+cat > $CONDA_PREFIX/etc/conda/activate.d/kofam.sh <<'EOF'
+export KOFAM_DB=/path/to/databases/kofam
+EOF
+```
+
 <!-- The `btex_env.yml` file includes `pip install -e .`, so it installs the local repository in editable mode and creates the `annotate-btex`, `vis-btex`, and `run-circos` command-line entry points in the environment's `bin/` directory. -->
 
 <!-- ### End-user / release install

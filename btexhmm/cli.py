@@ -11,8 +11,8 @@ DEFAULT_HMM_LIB = HERE / "hmms" / "all_models.hmm"
 def parse_args():
     p = argparse.ArgumentParser(
         description=(
-            "Annotate a directory of protein FASTA files with the BTEX HMM database. "
-            "Runs hmmscan using the bundled BTEX HMM library."
+            "Annotate a directory of genome DNA FASTA files or protein FASTA files "
+            "with the BTEX HMM database. DNA inputs are first gene-called with Prodigal."
         )
     )
     p.add_argument(
@@ -21,8 +21,8 @@ def parse_args():
         dest="proteins",
         required=True,
         help=(
-            "Directory containing protein FASTA files, or a single protein FASTA file "
-            "(for example *.faa, *.fa, *.fasta)."
+            "Directory containing genome DNA FASTA files or protein FASTA files "
+            "(for example *.fna, *.fa, *.fasta, *.faa)."
         ),
     )
     p.add_argument(
@@ -37,47 +37,25 @@ def parse_args():
         default=8,
         help="Number of CPUs for hmmscan",
     )
-    p.add_argument(
-        "--skip-existing",
-        action="store_true",
-        help="Skip rerunning hmmscan if outputs already exist",
+    prodigal_group = p.add_mutually_exclusive_group()
+    prodigal_group.add_argument(
+        "-meta",
+        dest="prodigal_mode",
+        action="store_const",
+        const="meta",
+        help="Use Prodigal meta mode for DNA genome inputs",
+    )
+    prodigal_group.add_argument(
+        "-single",
+        dest="prodigal_mode",
+        action="store_const",
+        const="single",
+        help="Use Prodigal single mode for DNA genome inputs",
     )
     p.add_argument(
         "--evalue",
         default=None,
         help="Sequence E-value cutoff passed to hmmscan (e.g. 1e-5)",
-    )
-    p.add_argument(
-        "--domevalue",
-        default=None,
-        help="Domain E-value cutoff passed to hmmscan (e.g. 1e-5)",
-    )
-    p.add_argument(
-        "--min-bits",
-        type=float,
-        default=None,
-        help="Optional minimum bit score when counting hits",
-    )
-    p.add_argument(
-        "--max-ie",
-        type=float,
-        default=None,
-        help="Optional maximum i-Evalue when counting hits",
-    )
-    p.add_argument(
-        "--unique-per-seq",
-        action="store_true",
-        help="Count at most one hit per sequence per HMM",
-    )
-    p.add_argument(
-        "--all-hits-per-protein",
-        action="store_true",
-        help="Count all passing HMM hits per protein (default is best hit per protein)",
-    )
-    p.add_argument(
-        "--models",
-        default=None,
-        help="Optional comma/space-separated subset of HMM names to report",
     )
     return p.parse_args()
 
@@ -92,25 +70,15 @@ def main():
     out_csv = outdir / "btex_hmm_summary.csv"
     hmmscan_argv = [
         "--hmm-lib", str(DEFAULT_HMM_LIB),
-        "--proteins", str(proteins),
+        "--genomes-dir", str(proteins),
         "--out", str(out_csv),
         "--cpus", str(args.cpus),
     ]
-    if args.skip_existing:
-        hmmscan_argv.append("--skip-existing")
+    if args.prodigal_mode == "meta":
+        hmmscan_argv.append("-meta")
+    elif args.prodigal_mode == "single":
+        hmmscan_argv.append("-single")
     if args.evalue:
         hmmscan_argv.extend(["--evalue", str(args.evalue)])
-    if args.domevalue:
-        hmmscan_argv.extend(["--domevalue", str(args.domevalue)])
-    if args.min_bits is not None:
-        hmmscan_argv.extend(["--min-bits", str(args.min_bits)])
-    if args.max_ie is not None:
-        hmmscan_argv.extend(["--max-ie", str(args.max_ie)])
-    if args.unique_per_seq:
-        hmmscan_argv.append("--unique-per-seq")
-    if args.all_hits_per_protein:
-        hmmscan_argv.append("--all-hits-per-protein")
-    if args.models:
-        hmmscan_argv.extend(["--models", args.models])
 
     hmmscan_main(hmmscan_argv)
