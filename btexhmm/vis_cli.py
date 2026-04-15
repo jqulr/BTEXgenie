@@ -1,6 +1,7 @@
 import argparse
 import shlex
 import shutil
+import subprocess
 from pathlib import Path
 
 try:
@@ -21,8 +22,13 @@ def parse_args():
     )
     p.add_argument(
         "--hmmscan",
-        required=True,
+        default=None,
         help="Path to hmmscan output CSV (must contain at least sample and hmm columns).",
+    )
+    p.add_argument(
+        "--genome-dir",
+        default=None,
+        help="Optional genome directory with per-genome subdirectories containing kofam_abv_thres.tsv.",
     )
     p.add_argument(
         "-s",
@@ -51,6 +57,9 @@ def parse_args():
 def main():
     args = parse_args()
 
+    if bool(args.hmmscan) == bool(args.genome_dir):
+        raise SystemExit("Provide exactly one of --hmmscan or --genome-dir.")
+
     rscript = shutil.which("Rscript")
     if rscript is None:
         raise SystemExit("Rscript not found in PATH. Please install R and ensure Rscript is available.")
@@ -60,12 +69,9 @@ def main():
     if not vis_script.exists():
         raise SystemExit(f"Visualization script not found: {vis_script}")
 
-    hmmscan = Path(args.hmmscan).expanduser().resolve()
     ko_map = DEFAULT_KO_MAP.resolve()
     outdir = Path(args.outdir).expanduser().resolve()
 
-    if not hmmscan.exists():
-        raise SystemExit(f"--hmmscan file not found: {hmmscan}")
     if not ko_map.exists():
         raise SystemExit(f"Default KO map file not found: {ko_map}")
 
@@ -74,8 +80,6 @@ def main():
     cmd = [
         rscript,
         str(vis_script),
-        "--hmmscan",
-        str(hmmscan),
         "--sample",
         str(args.sample),
         "--ko-map",
@@ -85,6 +89,16 @@ def main():
         "--outdir",
         str(outdir),
     ]
+    if args.hmmscan:
+        hmmscan = Path(args.hmmscan).expanduser().resolve()
+        if not hmmscan.exists():
+            raise SystemExit(f"--hmmscan file not found: {hmmscan}")
+        cmd[2:2] = ["--hmmscan", str(hmmscan)]
+    if args.genome_dir:
+        genome_dir = Path(args.genome_dir).expanduser().resolve()
+        if not genome_dir.exists():
+            raise SystemExit(f"--genome-dir not found: {genome_dir}")
+        cmd[2:2] = ["--genome-dir", str(genome_dir)]
     log_path = outdir / "log_file_vis-btex.txt"
     try:
         with command_logger(log_path):

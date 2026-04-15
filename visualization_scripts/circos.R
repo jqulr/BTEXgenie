@@ -84,6 +84,15 @@ infer_default_pathway_map <- function() {
   )
 }
 
+infer_default_ko_category_map <- function() {
+  candidate1 <- file.path("/home/juneq/BTEX-HMMs/btexhmm/data/A_ko_category_map.tsv")
+  if (file.exists(candidate1)) return(candidate1)
+  stop(
+    sprintf("[ERROR] Default KO category map not found. Tried:\n  %s\nUse --ko-category-map to provide it explicitly.", candidate1),
+    call. = FALSE
+  )
+}
+
 read_fasta_lengths <- function(dna_path) {
   lines <- readLines(dna_path, warn = FALSE)
   headers <- which(startsWith(lines, ">"))
@@ -1040,15 +1049,16 @@ run <- function(opt) {
   kofam_hit_df <- tibble()
   kofam_density_summary_df <- tibble()
   kofam_density_matrix_df <- tibble()
-  if (!is.null(opt$kofam) && nzchar(opt$kofam) && !is.null(opt$ko_category_map) && nzchar(opt$ko_category_map)) {
+  if (!is.null(opt$kofam) && nzchar(opt$kofam)) {
     if (is.null(opt$prodigal_gbk) || !nzchar(opt$prodigal_gbk)) {
       stop("[ERROR] --prodigal-gbk is required when using --kofam and --ko-category-map.", call. = FALSE)
     }
+    ko_category_map_path <- if (!is.null(opt$ko_category_map) && nzchar(opt$ko_category_map)) opt$ko_category_map else infer_default_ko_category_map()
     message(sprintf("[info] Using KOfam assignments: %s", opt$kofam))
-    message(sprintf("[info] Using KO category map: %s", opt$ko_category_map))
+    message(sprintf("[info] Using KO category map: %s", ko_category_map_path))
     cds_df <- read_prodigal_gbk_cds(opt$prodigal_gbk)
     kofam_df <- read_kofam_assignments(opt$kofam)
-    ko_cat_df <- read_ko_category_map(opt$ko_category_map)
+    ko_cat_df <- read_ko_category_map(ko_category_map_path)
     kofam_hit_df <- join_kofam_to_cds(kofam_df, cds_df, ko_cat_df)
     density_out <- compute_category_density_windows(kofam_hit_df, contig_lengths, window_size = opt$window_size)
     kofam_density_summary_df <- density_out$summary
