@@ -17,9 +17,10 @@ def parse_args():
         )
     )
     p.add_argument(
-        "-p",
-        "--proteins",
-        dest="proteins",
+        "-g",
+        "--genome-dir",
+        dest="genome_dir",
+        metavar="GENOMES",
         required=True,
         help=(
             "Directory containing genome DNA FASTA files or protein FASTA files "
@@ -40,14 +41,14 @@ def parse_args():
     )
     prodigal_group = p.add_mutually_exclusive_group()
     prodigal_group.add_argument(
-        "-meta",
+        "--meta",
         dest="prodigal_mode",
         action="store_const",
         const="meta",
         help="Use Prodigal meta mode for DNA genome inputs",
     )
     prodigal_group.add_argument(
-        "-single",
+        "--single",
         dest="prodigal_mode",
         action="store_const",
         const="single",
@@ -64,14 +65,14 @@ def parse_args():
 def main():
     args = parse_args()
 
-    proteins = Path(args.proteins).resolve()
+    genomes = Path(args.genome_dir).resolve()
     outdir = Path(args.outdir).resolve()
     outdir.mkdir(parents=True, exist_ok=True)
 
     out_csv = outdir / "btex_hmm_summary.csv"
     hmmscan_argv = [
         "--hmm-lib", str(DEFAULT_HMM_LIB),
-        "--genomes-dir", str(proteins),
+        "--genomes-dir", str(genomes),
         "--out", str(out_csv),
         "--cpus", str(args.cpus),
     ]
@@ -84,17 +85,17 @@ def main():
 
     top_cmd = [
         "annotate-btex",
-        "-p",
-        str(proteins),
+        "-g",
+        str(genomes),
         "-o",
         str(outdir),
         "--cpus",
         str(args.cpus),
     ]
     if args.prodigal_mode == "meta":
-        top_cmd.append("-meta")
+        top_cmd.append("--meta")
     elif args.prodigal_mode == "single":
-        top_cmd.append("-single")
+        top_cmd.append("--single")
     if args.evalue:
         top_cmd.extend(["--evalue", str(args.evalue)])
 

@@ -26,7 +26,10 @@ def parse_args():
         help="Path to hmmscan output CSV (must contain at least sample and hmm columns).",
     )
     p.add_argument(
+        "-g",
         "--genome-dir",
+        dest="genome_dir",
+        metavar="GENOMES",
         default=None,
         help="Optional genome directory with per-genome subdirectories containing kofam_abv_thres.tsv.",
     )

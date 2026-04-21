@@ -260,7 +260,13 @@ write_sample_color_legend <- function(path, sample_colors) {
 
 write_split_color_inputs <- function(path, pathway_kos, kos_by_sample, sample_colors) {
   samples <- names(sample_colors)
-  mat <- sapply(samples, function(s) pathway_kos %in% kos_by_sample[[s]])
+  mat <- vapply(
+    samples,
+    function(s) as.integer(pathway_kos %in% kos_by_sample[[s]]),
+    integer(length(pathway_kos))
+  )
+  mat <- matrix(mat, nrow = length(pathway_kos), ncol = length(samples))
+  colnames(mat) <- samples
   storage.mode(mat) <- "integer"
 
   present_samples <- apply(mat, 1, function(row) {
