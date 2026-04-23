@@ -107,28 +107,47 @@ To run BTEX-HMMs, input should be a directory containing either genome DNA FASTA
 
 ## Example with protein files in *test_genomes*
 ```bash
-annotate-btex -p btexhmm/test_genomes \
+annotate-btex -g btexhmm/test_genomes \
               -o path/to/output_dir \
               --evalue 1e-5 \
               --cpus 8
 ```
+> [!NOTE]
+> For proper parsing of genomic coordinates, protein files produced from Prodigal are needed.
 
 ## Example with genome FASTA files
 ```bash
-annotate-btex -p /path/to/genome_fastas \
+annotate-btex -g /path/to/genome_fastas \
               -o path/to/output_dir \
-              -meta \
+              --meta \
               --cpus 8
 ```
-**Outputs**
-- `btex_hmm_summary.csv` contains the output from running each input file against all the HMMs. 
-- `prodigal_output` contains predicted protein FASTA files when genome DNA inputs are provided.
-- `hmmscan_output` contains a sub-directory for each input file with the raw *.domtblout* output files produced before and after filtering by GA thresholds. 
-- `kofam_abv_thres.tsv` is written for each sample when the KOfam step runs successfully.
+
+> [!NOTE]
+> For FASTA sequence inputs, the program will run gene-calling with Prodigal with either the --meta or --single flag specified as input. 
+
+**Main outputs**
+
+1. `btex_hmm_summary.csv`  
+   Reports individual BTEX HMM hits, including the matched HMM, the threshold used, the hit score, and the protein sequence header for the corresponding gene.
+
+2. `btex_hmm_summary_counts.csv`  
+   Summarizes BTEX HMM hits by HMM, reporting hit counts instead of individual protein sequence headers.
+
+3. `prodigal_output/`  
+   Generated when genome DNA sequences are used as input. This directory contains one subdirectory per genome and may include:  
+   ` {genome}_prodigal.gbk `  
+   ` {genome}.faa `  
+   ` {genome}_kofam_abv_thres.tsv `, produced when the KOfam step runs successfully for that sample.
+
+4. `hmmscan_output/`  
+   Contains one subdirectory per input file with raw `.domtblout` results generated before and after filtering by GA thresholds.
+
+5. `log_file_annotate-btex.txt`  
+   Records run progress as well as detailed warning and error messages.
 
 **Notes:**
 - The `annotate-btex` command accepts either genome DNA FASTA files or protein FASTA files, but all files in one run must be the same type.
-- For genome DNA inputs, `annotate-btex` runs Prodigal first and requires either `-meta` or `-single`.
 - BTEX-HMM reports the single best-scoring HMM hit per protein-coding region.
 
 ## Visualizations
