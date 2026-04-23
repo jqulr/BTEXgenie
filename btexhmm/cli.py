@@ -59,6 +59,11 @@ def parse_args():
         default=None,
         help="Sequence E-value cutoff passed to hmmscan (e.g. 1e-5)",
     )
+    p.add_argument(
+        "--skip-kofam",
+        action="store_true",
+        help="Skip the KOfam HMM database download and search after hmmscan completes",
+    )
     return p.parse_args()
 
 
@@ -82,6 +87,8 @@ def main():
         hmmscan_argv.append("-single")
     if args.evalue:
         hmmscan_argv.extend(["--evalue", str(args.evalue)])
+    if args.skip_kofam:
+        hmmscan_argv.append("--skip-kofam")
 
     top_cmd = [
         "annotate-btex",
@@ -98,6 +105,8 @@ def main():
         top_cmd.append("--single")
     if args.evalue:
         top_cmd.extend(["--evalue", str(args.evalue)])
+    if args.skip_kofam:
+        top_cmd.append("--skip-kofam")
 
     log_path = outdir / "log_file_annotate-btex.txt"
     with command_logger(log_path):
