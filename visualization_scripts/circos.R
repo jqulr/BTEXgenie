@@ -777,6 +777,114 @@ write_genbank_like_hits_tsv <- function(path, features, contig_lengths) {
   write_tsv(out, path)
 }
 
+format_genbank_location <- function(start, end, strand) {
+  loc <- sprintf("%d..%d", as.integer(start), as.integer(end))
+  if (!is.na(strand) && as.integer(strand) == -1L) {
+    return(sprintf("complement(%s)", loc))
+  }
+  loc
+}
+
+wrap_genbank_text <- function(prefix, text, width = 80) {
+  if (is.na(text) || !nzchar(text)) return(character(0))
+  available <- max(1, width - nchar(prefix))
+  wrapped <- strwrap(text, width = available, exdent = 0)
+  c(
+    paste0(prefix, wrapped[1]),
+    if (length(wrapped) > 1) paste0(strrep(" ", nchar(prefix)), wrapped[-1]) else character(0)
+  )
+}
+
+format_genbank_qualifier <- function(key, value) {
+  if (is.na(value) || !nzchar(value)) return(character(0))
+  escaped <- gsub('"', "'", as.character(value), fixed = TRUE)
+  wrap_genbank_text(sprintf('                     /%s="', key), paste0(escaped, '"'))
+}
+
+format_origin_lines <- function(seq) {
+  seq <- tolower(seq)
+  if (!nzchar(seq)) return("        1")
+
+  seq_len <- nchar(seq)
+  starts <- seq.int(1L, seq_len, by = 60L)
+  ends <- pmin(starts + 59L, seq_len)
+  chunks <- substring(seq, starts, ends)
+
+  vapply(seq_along(chunks), function(i) {
+    chunk <- chunks[i]
+    chunk_len <- nchar(chunk)
+    grp_starts <- seq.int(1L, chunk_len, by = 10L)
+    grp_ends <- pmin(grp_starts + 9L, chunk_len)
+    groups <- substring(chunk, grp_starts, grp_ends)
+    sprintf("%9d %s", starts[i], paste(groups, collapse = " "))
+  }, character(1))
+}
+
+write_genbank_hits_gbk <- function(path, genome, features, cmap, dna_path) {
+  seq_df <- read_fasta_sequences(dna_path)
+  if (nrow(seq_df) == 0) {
+    writeLines(character(0), path)
+    return(invisible(NULL))
+  }
+
+  feature_df <- features |>
+    left_join(cmap |> select(hmm, pathway), by = "hmm") |>
+    arrange(contig, start, end, hmm)
+
+  message(sprintf("[info] Writing BTEX-HMM GenBank export -> %s", path))
+  con <- file(path, open = "w")
+  on.exit(close(con), add = TRUE)
+
+  for (i in seq_len(nrow(seq_df))) {
+    contig_name <- seq_df$contig[i]
+    sequence <- seq_df$sequence[i]
+    contig_features <- feature_df |>
+      filter(contig == contig_name)
+
+    locus_line <- sprintf(
+      "LOCUS       %-16s %7d bp    DNA     linear   UNK 01-JAN-1980",
+      substr(contig_name, 1, 16),
+      nchar(sequence)
+    )
+    header_lines <- c(
+      locus_line,
+      sprintf("DEFINITION  BTEXgenie hits for %s contig %s.", genome, contig_name),
+      sprintf("ACCESSION   %s", contig_name),
+      sprintf("VERSION     %s", contig_name),
+      "KEYWORDS    .",
+      sprintf("SOURCE      %s", genome),
+      sprintf("  ORGANISM  %s", genome),
+      "            .",
+      "FEATURES             Location/Qualifiers"
+    )
+
+    feature_lines <- c()
+    if (nrow(contig_features) > 0) {
+      for (j in seq_len(nrow(contig_features))) {
+        feature_lines <- c(
+          feature_lines,
+          sprintf("     misc_feature    %s", format_genbank_location(contig_features$start[j], contig_features$end[j], contig_features$strand[j])),
+          format_genbank_qualifier("gene", contig_features$hmm[j]),
+          format_genbank_qualifier("note", contig_features$pathway[j]),
+          format_genbank_qualifier("inference", "profile:BTEXgenie")
+        )
+      }
+    }
+
+    record_lines <- c(
+      header_lines,
+      feature_lines,
+      "ORIGIN",
+      format_origin_lines(sequence),
+      "//"
+    )
+    writeLines(record_lines, con = con, sep = "\n")
+  }
+
+  message(sprintf("[info] Finished BTEX-HMM GenBank export -> %s", path))
+  invisible(path)
+}
+
 write_gc_skew_tsv <- function(path, gc_skew_df) {
   write_tsv(gc_skew_df, path)
 }
@@ -1111,21 +1219,13 @@ run <- function(opt) {
 
   write_hmm_colors_tsv(file.path(sample_dir, "hmm_colors.tsv"), cmap)
   write_karyotype_tsv(file.path(sample_dir, "karyotype.tsv"), contig_lengths)
-  write_gene_hits_tsv(file.path(sample_dir, "gene_hits.tsv"), features, cmap)
   write_gene_labels_tsv(file.path(sample_dir, "gene_labels.tsv"), features)
-  write_genbank_like_hits_tsv(file.path(sample_dir, "gene_hits_export.tsv"), features, contig_lengths)
+  write_genbank_hits_gbk(file.path(sample_dir, "btex_hmm_hits.gbk"), genome, features, cmap, opt$dna)
   write_gc_skew_tsv(file.path(sample_dir, "gc_skew_windows.tsv"), gc_skew_df)
 
   if (nrow(kofam_hit_df) > 0) {
     write_kofam_hits_tsv(file.path(sample_dir, "kofam_category_hits.tsv"), kofam_hit_df)
   }
-  if (nrow(kofam_density_summary_df) > 0) {
-    write_kofam_density_summary_tsv(file.path(sample_dir, "kofam_density_track_windows.tsv"), kofam_density_summary_df)
-  }
-  if (nrow(kofam_density_matrix_df) > 0) {
-    write_kofam_density_matrix_tsv(file.path(sample_dir, "kofam_density_matrix.tsv"), kofam_density_matrix_df)
-  }
-
   plot_paths <- make_circlize_plot(
     sample_dir = sample_dir,
     genome = genome,

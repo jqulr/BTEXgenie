@@ -197,16 +197,17 @@ vis-btex -g /path/to/prodigal_output \
 **For visualization of hits on Circos:**
 
 
-**To visualize only hits from BTEXgenie:**
+**BTEXgenie hits:**
 ```bash
 run-circos \
   --hmmscan /path/to/btex_hmm_summary.csv \
   --dna /test_genomes/Aromatoleum_bremense_PbN1T.fna \
   -o /path/to/output_dir \
-  -s "Aromatoleum_bremense_PbN1T" 
+  -s "Aromatoleum_bremense_PbN1T" \
+  --window-size 5000
 ```
 
-**To visualize hits from KOfam and BTEXgenie:**
+**KOfam and BTEXgenie hits:**
 
 ```bash
   run-circos \
@@ -214,6 +215,7 @@ run-circos \
   --dna /path/to/genome.fna \
   -o /path/to/outdir \
   -s sample_name \
+  --window-size 5000 \
   --prodigal-gbk /path/to/sample_prodigal.gbk \
   --kofam-output /path/to/kofam_abv_thres.tsv 
 ```
@@ -222,14 +224,28 @@ run-circos \
 
 **Input:**
 - `run-circos` takes btex_hmm_summary.csv together with the genome sequence file for a single sample. In the example above, the genome sequence file for Aromatoleum bremense PbN1T in the test_genomes folder is used.
+- `--window-size` can be use to adjust the window size used to calculate GC-skew for better visualization.
 - To display all hits identified by BTEX-HMMs, provide a sample name with -s that exactly matches the sample name in btex_hmm_summary.csv.
 
 **Output:**
 1. {output_dir}/`circos_plot.pdf` 
    Main visualization output with a genome track, GC-skew track and genomic distribution of hits to BTEXgenie. And optionally a KOfam track that show all the hits to the xenobiotic degradation pathways on KEGG Pathways. 
 
-2. {output_dir}/`circos_plot.png` 
-   TODO TODO
+2. {output_dir}/`kofam_density_track_windows.tsv` 
+   Contains the density level of a xenobiotic degradation pathway for a genomic window. 
 
-**Example Output:**
+3. {outout_dir}/`btex_hmm_hits.gbk`
+   GenBank formated file that lists the corresponding genes of hits to BTEXgenie.
+   
+4. {outout_dir}/`kofam_category_hits.tsv`
+   Contains all the hits to KOfam and the corresponding KO ids of each hit. 
+   
+5. `gene_hits.tsv`, `karyotype.tsv`, `hmm_colors.tsv`, `contig_length.tsv`
+   are all the configuration files for generating the Circos plot.
+   
+
+**Example output using the Aromatoleum bremense PbN1T genome:**
+<p align="center">
+  <img src="img/Aromatoleum_bremense_PbN1T_circos.png" width="600">
+</p>
 
