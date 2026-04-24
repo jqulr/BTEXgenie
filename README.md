@@ -1,8 +1,12 @@
 # BTEX-HMM: A database for the functional annotation of BTEX-degradation genes from isolate genomes and metagenomes
 
-<!-- <a href="HMMs">
-  <img src="img/toluene.png" alt="toluene button" width="60" />
-</a> -->
+## Table of Contents
+* [Installation](#installation)
+* [Usage](#usage)
+* [KEGG Pathway visualizations](#kEGG-Pathway-visualizations)
+* [Circos plot visualizations](#Circos-plot-visualizations)
+
+## Installation
 
 This toolkit uses hmmscan from the HMMER suite to query BTEX-HMM profiles.
 The following packages are needed for visualization and analysis:
@@ -21,11 +25,11 @@ The following packages are needed for visualization and analysis:
 
 If your system already satisfies these requirements, you can move directly to running the BTEX-HMM scripts. Otherwise, you may install everything through Conda as shown below.
 
-## Install via Conda
+1. Conda Install
 Confirm that a working Conda installation is available. See [Conda installation](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html) for more details.
 
-### Development install
-Create the BTEX-HMM environment and install all dependencies plus an editable install of the local repo via *btex_env.yml*:
+<!-- ### Development install
+Create the BTEX-HMM environment and install all dependencies plus an editable install of the local repo via *btex_env.yml*: -->
 
 ```bash
 cd /path/to/BTEX-HMMs
@@ -44,7 +48,7 @@ Confirm that the KOfamScan executable is installed:
 command -v exec_annotation
 ```
 
-If this prints nothing, KOfamScan is not available on your `PATH`.
+KOfamScan should be available on the active conda environment PATH when the environment is set up correctly.
 
 Database download:
 
@@ -85,27 +89,10 @@ command -v exec_annotation
 `KOFAM_DB` should point to the database directory containing `profiles/` and `ko_list`.
 `exec_annotation` is the KOfamScan program itself and must be installed separately from the database files. The Conda env files in this repo now include the `kofamscan` package so `exec_annotation` should be available after environment creation.
 
-<!-- The `btex_env.yml` file includes `pip install -e .`, so it installs the local repository in editable mode and creates the `annotate-btex`, `vis-btex`, and `run-circos` command-line entry points in the environment's `bin/` directory. -->
-
-<!-- ### End-user / release install
-For a non-editable install that does not depend on the current working directory, build a wheel from the repo root:
-
-```bash
-cd /path/to/BTEX-HMMs
-python -m build
-```
-
-Then create the environment from *btex_env_release.yml*:
-
-```bash
-conda env create -n btex-hmm -f btex_env_release.yml
-```
-
-This installs the packaged wheel from `./dist/` instead of the live source tree, which is more reproducible for end users. -->
 ## Usage
 To run BTEX-HMMs, input should be a directory containing either genome DNA FASTA files or protein FASTA files.
 
-## Example with protein files in *test_genomes*
+### Example with protein files in *test_genomes*
 ```bash
 annotate-btex -g btexhmm/test_genomes \
               -o path/to/output_dir \
@@ -115,7 +102,7 @@ annotate-btex -g btexhmm/test_genomes \
 > [!NOTE]
 > For proper parsing of genomic coordinates, protein files produced from Prodigal are needed.
 
-## Example with genome FASTA files
+### Example with genome FASTA files
 ```bash
 annotate-btex -g /path/to/genome_fastas \
               -o path/to/output_dir \
@@ -150,7 +137,7 @@ annotate-btex -g /path/to/genome_fastas \
 - The `annotate-btex` command accepts either genome DNA FASTA files or protein FASTA files, but all files in one run must be the same type.
 - BTEX-HMM reports the single best-scoring HMM hit per protein-coding region.
 
-## Visualizations
+## KEGG Pathway visualizations
 BTEX-HMM supports visualization of detected genes on KEGG pathway modules or Circos plot.
 
 **For visualization of BTEX-HMM hits on BTEX-associated KEGG pathways:**
@@ -194,7 +181,7 @@ vis-btex -g /path/to/prodigal_output \
    Contains the color assigned to each input genome for KEGG pathway visualization.
 
 
-**For visualization of hits on Circos:**
+## Circos plot visualizations
 
 
 **BTEXgenie hits:**
