@@ -179,7 +179,7 @@ vis-btex -g /path/to/prodigal_output \
 ## Circos plot visualizations
 
 
-**BTEXgenie hits:**
+**BTEX-HMM hits:**
 ```bash
 run-circos \
   --hmmscan /path/to/btex_hmm_summary.csv \
