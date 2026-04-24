@@ -227,21 +227,22 @@ run-circos \
 - `--window-size` can be use to adjust the window size used to calculate GC-skew for better visualization.
 - To display all hits identified by BTEX-HMMs, provide a sample name with -s that exactly matches the sample name in btex_hmm_summary.csv.
 
-**Output:**
-1. {output_dir}/`circos_plot.pdf` 
-   Main visualization output with a genome track, GC-skew track and genomic distribution of hits to BTEXgenie. And optionally a KOfam track that show all the hits to the xenobiotic degradation pathways on KEGG Pathways. 
+**Output**
 
-2. {output_dir}/`kofam_density_track_windows.tsv` 
-   Contains the density level of a xenobiotic degradation pathway for a genomic window. 
+1. `{output_dir}/circos_plot.pdf`  
+   Main visualization showing the genome track, GC skew track, and genomic distribution of BTEXgenie hits. Optionally includes a KOfam track displaying hits to xenobiotic degradation pathways on KEGG.
 
-3. {outout_dir}/`btex_hmm_hits.gbk`
-   GenBank formated file that lists the corresponding genes of hits to BTEXgenie.
-   
-4. {outout_dir}/`kofam_category_hits.tsv`
-   Contains all the hits to KOfam and the corresponding KO ids of each hit. 
-   
-5. `gene_hits.tsv`, `karyotype.tsv`, `hmm_colors.tsv`, `contig_length.tsv`
-   are all the configuration files for generating the Circos plot.
+2. `{output_dir}/kofam_density_track_windows.tsv`  
+   Table of pathway density values across genomic windows for xenobiotic degradation pathways.
+
+3. `{output_dir}/btex_hmm_hits.gbk`  
+   GenBank formatted file listing genes identified as BTEXgenie hits.
+
+4. `{output_dir}/kofam_category_hits.tsv`  
+   Table of all KOfam hits with their corresponding KO identifiers.
+
+5. `gene_hits.tsv`, `karyotype.tsv`, `hmm_colors.tsv`, `contig_length.tsv`  
+   Configuration files used to generate the Circos plot.
    
 
 **Example output using the Aromatoleum bremense PbN1T genome:**
