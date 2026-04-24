@@ -160,7 +160,7 @@ vis-btex -g /path/to/prodigal_output \
 1. {output_dir}/`KEGG_MAP_LINKS.txt` 
    Contains the URLs for visualizing hits on KEGG pathways. 
    
-   > [!NOTE]
+   > [!Note]
    > By default, these links correspond to the following KEGG pathways:
    > - `map00642` xylene degradation
    > - `map00623` toluene degradation
