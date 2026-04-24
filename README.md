@@ -246,6 +246,6 @@ run-circos \
 
 **Example output using the Aromatoleum bremense PbN1T genome:**
 <p align="center">
-  <img src="img/Aromatoleum_bremense_PbN1T_circos.png" width="600">
+  <img src="img/Aromatoleum_bremense_PbN1T_circos.png" width="800">
 </p>
 
