@@ -6,7 +6,6 @@
 # Output directory contains:
 # KEGG_MAP_LINKS.txt
 # sample_color_legend.tsv
-# split_color_inputs.<pid>.tsv
 
 suppressPackageStartupMessages({
   library(optparse)
@@ -64,6 +63,40 @@ read_ko_map <- function(path) {
     if (length(kos) > 0) out[[key]] <- unique(c(out[[key]], kos))
   }
   out
+}
+
+read_pathway_categories <- function(path) {
+  tab <- read.delim(path, sep = "\t", header = TRUE, stringsAsFactors = FALSE, check.names = FALSE)
+  nms_l <- tolower(names(tab))
+
+  pathway_idx <- which(nms_l %in% c("source_pathway", "pathway", "pathway_id"))[1]
+  category_idx <- which(nms_l == "category")[1]
+  if (is.na(pathway_idx) || is.na(category_idx)) {
+    stop("Pathway category map must contain source_pathway/pathway/pathway_id and category columns")
+  }
+
+  pathway_col <- names(tab)[pathway_idx]
+  category_col <- names(tab)[category_idx]
+
+  pathways <- trimws(as.character(tab[[pathway_col]]))
+  pathways <- sub("^map", "", pathways, ignore.case = TRUE)
+  categories <- trimws(as.character(tab[[category_col]]))
+
+  keep <- nzchar(pathways) & nzchar(categories)
+  tab <- data.frame(
+    pathway = pathways[keep],
+    category = categories[keep],
+    stringsAsFactors = FALSE
+  )
+  tab <- tab[!duplicated(tab$pathway), , drop = FALSE]
+  setNames(tab$category, tab$pathway)
+}
+
+sanitize_filename_part <- function(x) {
+  x <- tolower(trimws(x))
+  x <- gsub("[^a-z0-9]+", "_", x)
+  x <- gsub("^_+|_+$", "", x)
+  x
 }
 
 read_kos_from_kofam_detail <- function(path) {
@@ -258,37 +291,8 @@ write_sample_color_legend <- function(path, sample_colors) {
   write.table(df, file = path, sep = "\t", quote = FALSE, row.names = FALSE, col.names = TRUE)
 }
 
-write_split_color_inputs <- function(path, pathway_kos, kos_by_sample, sample_colors) {
-  samples <- names(sample_colors)
-  mat <- vapply(
-    samples,
-    function(s) as.integer(pathway_kos %in% kos_by_sample[[s]]),
-    integer(length(pathway_kos))
-  )
-  mat <- matrix(mat, nrow = length(pathway_kos), ncol = length(samples))
-  colnames(mat) <- samples
-  storage.mode(mat) <- "integer"
-
-  present_samples <- apply(mat, 1, function(row) {
-    ss <- samples[as.logical(row)]
-    if (length(ss) == 0) "" else paste(ss, collapse = ",")
-  })
-
-  present_colors <- apply(mat, 1, function(row) {
-    ss <- samples[as.logical(row)]
-    if (length(ss) == 0) "" else paste(unname(sample_colors[ss]), collapse = ",")
-  })
-
-  out <- data.frame(
-    ko = pathway_kos,
-    present_samples = present_samples,
-    present_colors = present_colors,
-    stringsAsFactors = FALSE
-  )
-  for (i in seq_along(samples)) out[[samples[i]]] <- mat[, i]
-
-  write.table(out, file = path, sep = "\t", quote = FALSE, row.names = FALSE, col.names = TRUE)
-}
+category_map_path <- "/home/juneq/BTEX-HMMs/btexhmm/data/A_ko_category_map.tsv"
+pathway_categories <- read_pathway_categories(category_map_path)
 
 set_kegg_ua()
 
@@ -374,6 +378,42 @@ if (length(run_samples) == 1) {
 legend_path <- file.path(opt$outdir, "sample_color_legend.tsv")
 write_sample_color_legend(legend_path, sample_colors)
 
+write_kegg_html_launcher <- function(path, pid, multi_query_raw) {
+
+  # Decode in reverse order of encoding (% must be decoded last)
+  body_val <- gsub("%0A", "\n", multi_query_raw, fixed = TRUE)
+  body_val <- gsub("%20", " ",  body_val,        fixed = TRUE)
+  body_val <- gsub("%23", "#",  body_val,        fixed = TRUE)
+  body_val <- gsub("%25", "%",  body_val,        fixed = TRUE)  # always last
+
+  # Escape the three characters that are special inside JS template literals
+  js_safe <- gsub("\\", "\\\\", body_val, fixed = TRUE)  # must be first
+  js_safe <- gsub("`",  "\\`",  js_safe,  fixed = TRUE)
+  js_safe <- gsub("$", "\\$", js_safe, fixed = TRUE)
+  
+  html <- paste0(
+      '<!DOCTYPE html>\n',
+      '<html><head><meta charset="utf-8"><title>KEGG map ', pid, '</title></head>\n',
+      '<body>\n',
+      '<p>Opening KEGG pathway map ', pid, '&#8230;</p>\n',
+      '<p><button id="btn" onclick="go()">Click here if it did not open automatically</button></p>\n',
+      '<form id="f" method="POST" action="https://www.kegg.jp/kegg-bin/show_pathway" target="_blank">\n',
+      '  <input type="hidden" name="map"         value="map', pid, '">\n',
+      '  <input type="hidden" name="multi_query" id="mq"  value="">\n',
+      '</form>\n',
+      '<script>\n',
+      'function go(){\n',
+      '  document.getElementById("mq").value = `', js_safe, '`;\n',
+      '  document.getElementById("f").submit();\n',
+      '}\n',
+      'try { go(); } catch(e) {}\n',
+      '</script>\n',
+      '</body></html>\n'
+    )
+
+  writeLines(html, con = path)
+}
+
 for (pid in pids) {
   kos_by_sample_run <- kos_by_sample[run_samples]
   pathway_kos <- get_pathway_kos_from_kgml(pid)
@@ -385,6 +425,7 @@ for (pid in pids) {
     target_kos <- ko_universe
   }
 
+  # ── build multi_query (same as before) ──────────────────────────────────────
   if (!is.null(opt$sample) && tolower(opt$sample) != "all") {
     mq <- build_multi_query_btex_outline_single(
       pathway_kos = target_kos,
@@ -393,19 +434,7 @@ for (pid in pids) {
       sample_color = sample_colors[[run_samples[1]]],
       pathway_ko_groups = pathway_ko_groups
     )
-
-    if (!nzchar(mq)) {
-      url <- paste0("https://www.kegg.jp/kegg-bin/show_pathway?map=map", pid)
-      cat(paste0("\nPathway ", pid, " (single sample: ", run_samples[1], ", no detected KOs on pathway):\n", url, "\n"),
-          file = log_file, append = TRUE)
-      next
-    }
-
-    show_url <- paste0("https://www.kegg.jp/kegg-bin/show_pathway?map=map", pid, "&multi_query=", mq)
-
-    cat(paste0("\nPathway ", pid, " (single sample: ", run_samples[1], ", detected KOs only):\n", show_url, "\n"),
-        file = log_file, append = TRUE)
-
+    label <- paste0("single sample: ", run_samples[1])
   } else {
     mq <- build_multi_query_btex_outline_split(
       pathway_kos = target_kos,
@@ -414,27 +443,59 @@ for (pid in pids) {
       sample_colors = sample_colors,
       pathway_ko_groups = pathway_ko_groups
     )
-
-    if (!nzchar(mq)) {
-      url <- paste0("https://www.kegg.jp/kegg-bin/show_pathway?map=map", pid)
-      cat(paste0("\nPathway ", pid, " (split across samples, no detected KOs on pathway):\n", url, "\n"),
-          file = log_file, append = TRUE)
-      next
-    }
-
-    show_url <- paste0("https://www.kegg.jp/kegg-bin/show_pathway?map=map", pid, "&multi_query=", mq)
-
-    cat(paste0("\nPathway ", pid, " (split across samples, detected KOs only):\n", show_url, "\n"),
-        file = log_file, append = TRUE)
+    label <- "split across samples"
   }
 
-  if (length(pathway_kos) > 0) {
-    split_inputs_path <- file.path(opt$outdir, paste0("split_color_inputs.", pid, ".tsv"))
-    write_split_color_inputs(split_inputs_path, target_kos, kos_by_sample_run, sample_colors)
+  # ── empty result ─────────────────────────────────────────────────────────────
+  if (!nzchar(mq)) {
+    url <- paste0("https://www.kegg.jp/kegg-bin/show_pathway?map=map", pid)
+    cat(paste0("\nPathway ", pid, " (", label, ", no detected KOs on pathway):\n", url, "\n"),
+      file = log_file, append = TRUE
+    )
+    next
   }
+
+  # ── write GET url (kept as reference / for short payloads) ──────────────────
+  show_url <- paste0(
+    "https://www.kegg.jp/kegg-bin/show_pathway?map=map", pid,
+    "&multi_query=", mq
+  )
+  url_len <- nchar(show_url)
+
+  # ── always write the HTML POST launcher ──────────────────────────────────────
+  category_suffix <- pathway_categories[[pid]]
+  if (is.null(category_suffix) || !nzchar(category_suffix)) {
+    category_suffix <- "uncategorized"
+  }
+  category_suffix <- sanitize_filename_part(category_suffix)
+  html_path <- file.path(opt$outdir, paste0(category_suffix, "_", pid, ".html"))
+  write_kegg_html_launcher(html_path, pid, mq)
+
+  # ── log both ─────────────────────────────────────────────────────────────────
+  if (url_len <= 1200) {
+    cat(
+      paste0(
+        "\nPathway ", pid, " (", label, ") [URL ", url_len, " chars — OK]:\n",
+        show_url, "\n",
+        "HTML launcher: ", basename(html_path), "\n"
+      ),
+      file = log_file, append = TRUE
+    )
+  } else {
+    cat(
+      paste0(
+        "\nPathway ", pid, " (", label, ") [URL ", url_len,
+        " chars — too long, use HTML launcher]:\n",
+        "GET URL (may fail): ", show_url, "\n",
+        "HTML launcher: ", basename(html_path), "\n"
+      ),
+      file = log_file, append = TRUE
+    )
+  }
+
+  # ── presence table (unchanged) ───────────────────────────────────────────────
 }
 
-message("\nDone!")
+message("Done")
 message("Links: ", log_file)
 message("Legend: ", legend_path)
-message("Presence tables: split_color_inputs.<pid>.tsv in ", opt$outdir)
