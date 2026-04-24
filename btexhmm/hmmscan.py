@@ -465,8 +465,6 @@ def main(argv: list[str] | None = None):
         raise SystemExit(f"[err] no model names found in HMM library: {hmm_lib}")
     model_set = set(all_model_names)
 
-    print(f"[*] tracking {len(model_set)} HMM(s) from hmm_lib={hmm_lib}: {', '.join(sorted(model_set))}")
-
     input_files = find_input_files(genomes_dir)
     if not input_files:
         raise SystemExit(
@@ -476,7 +474,7 @@ def main(argv: list[str] | None = None):
     if input_kind == "dna":
         if args.prodigal_mode is None:
             raise SystemExit(
-                "[err] DNA genome inputs detected. Use either -meta or -single to choose the Prodigal mode."
+                "[err] DNA genome inputs detected. Use either --meta or --single to choose the Prodigal mode."
             )
         check_bin("prodigal")
         protein_fastas, kofam_input_dir = run_prodigal_for_inputs(
