@@ -1,8 +1,8 @@
 # BTEX-HMM: A database for the functional annotation of BTEX-degradation genes from isolate genomes and metagenomes
 
-<a href="HMMs">
+<!-- <a href="HMMs">
   <img src="img/toluene.png" alt="toluene button" width="60" />
-</a>
+</a> -->
 
 This toolkit uses hmmscan from the HMMER suite to query BTEX-HMM profiles.
 The following packages are needed for visualization and analysis:
@@ -180,19 +180,19 @@ vis-btex -g /path/to/prodigal_output \
 1. {output_dir}/`KEGG_MAP_LINKS.txt` 
    Contains the URLs for visualizing hits on KEGG pathways. 
    
-   > [!Note]
+   > [!NOTE]
    > By default, these links correspond to the following KEGG pathways:
-      map00642 xylene degradation
-      map00623 toluene degradation
-      map00622 ethylbenzene degradation
-      map00362 benzoate degradation
-   > To visualize additional pathways, run annotate-btex with the KOfam step enabled so that KEGG pathway information is available. This allows visualization of other pathways such as map00626 for naphthalene degradation.
+   > - `map00642` xylene degradation
+   > - `map00623` toluene degradation
+   > - `map00622` ethylbenzene degradation
+   > - `map00362` benzoate degradation
+   >
+   > To visualize additional pathways, run `annotate-btex` with the KOfam step enabled so that KEGG pathway information is available. This allows visualization of other pathways such as `map00626` for naphthalene degradation.
+
 
 2. {output_dir}/`sample_color_legend.tsv` 
    Contains the color assigned to each input genome for KEGG pathway visualization.
 
-3. {output_dir}/`split_color...` 
-   TODO TODO
 
 **For visualization of hits on Circos:**
 
