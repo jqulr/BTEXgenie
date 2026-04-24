@@ -189,7 +189,7 @@ run-circos \
   --window-size 5000
 ```
 
-**KOfam and BTEXgenie hits:**
+**KOfam and BTEX-HMM hits:**
 
 ```bash
   run-circos \
@@ -212,13 +212,13 @@ run-circos \
 **Output**
 
 1. `{output_dir}/circos_plot.pdf`  
-   Main visualization showing the genome track, GC skew track, and genomic distribution of BTEXgenie hits. Optionally includes a KOfam track displaying hits to xenobiotic degradation pathways on KEGG.
+   Main visualization showing the genome track, GC skew track, and genomic distribution of BTEX-HMM hits. Optionally includes a KOfam track displaying hits to xenobiotic degradation pathways on KEGG.
 
 2. `{output_dir}/kofam_density_track_windows.tsv`  
    Table of pathway density values across genomic windows for xenobiotic degradation pathways.
 
 3. `{output_dir}/btex_hmm_hits.gbk`  
-   GenBank formatted file listing genes identified as BTEXgenie hits.
+   GenBank formatted file listing genes identified as BTEX-HMM hits.
 
 4. `{output_dir}/kofam_category_hits.tsv`  
    Table of all KOfam hits with their corresponding KO identifiers.
