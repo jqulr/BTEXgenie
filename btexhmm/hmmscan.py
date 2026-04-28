@@ -440,7 +440,7 @@ def main(argv: list[str] | None = None):
     ap.add_argument(
         "--skip-kofam",
         action="store_true",
-        help="Skip the KOfam HMM databse download and search after hmmscan completes",
+        help="Skip the KOfam search after hmmscan completes",
     )
     ap.add_argument(
         "--out",

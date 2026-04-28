@@ -19,6 +19,7 @@ circos-r = []
 
 [project.scripts]
 btex-annotate = "btexhmm.cli:main"
+btex-build-db = "btexhmm.build_db_cli:main"
 btex-run-circos = "btexhmm.circos_cli:main"
 btex-vis = "btexhmm.vis_cli:main"
 

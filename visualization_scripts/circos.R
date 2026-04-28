@@ -138,38 +138,18 @@ generate_contig_lengths_table_from_dna <- function(dna_path, genome, out_path) {
     select(sample, contig, length)
   ensure_dir(dirname(out_path))
   write_tsv(out_df, out_path)
-  message(sprintf("[info] wrote %d contig entries to %s", nrow(out_df), out_path))
+  message(sprintf("[log] wrote %d contig entries to %s", nrow(out_df), out_path))
   out_path
 }
 
-ensure_contig_lengths <- function(opt, output_dir) {
+generate_contig_lengths_for_sample <- function(opt, output_dir) {
   default_out <- file.path(output_dir, "contig_length.tsv")
   ensure_dir(output_dir)
-
-  if (!is.null(opt$contig_lengths) && nzchar(opt$contig_lengths)) {
-    candidate <- opt$contig_lengths
-    if (file.exists(candidate)) {
-      if (normalizePath(candidate, winslash = "/") != normalizePath(default_out, winslash = "/", mustWork = FALSE)) {
-        file.copy(candidate, default_out, overwrite = TRUE)
-        message(sprintf("[info] Copied contig lengths to %s", default_out))
-      } else {
-        message(sprintf("[info] Using contig lengths at %s", default_out))
-      }
-      return(default_out)
-    }
-    if (is.null(opt$dna) || !nzchar(opt$dna)) {
-      stop(sprintf("[ERROR] contig lengths file not found: %s. Provide --dna so it can be generated automatically.", candidate), call. = FALSE)
-    }
-    message(sprintf("[info] contig lengths not found at %s; generating -> %s", candidate, default_out))
-    return(generate_contig_lengths_table_from_dna(opt$dna, opt$sample, default_out))
+  if (is.null(opt$genome) || !nzchar(opt$genome)) {
+    stop("[ERROR] Provide -g/--genome.", call. = FALSE)
   }
-
-  if (is.null(opt$dna) || !nzchar(opt$dna)) {
-    stop("[ERROR] Provide --dna or an existing --contig-lengths file.", call. = FALSE)
-  }
-
-  message(sprintf("[info] Auto-generating contig lengths -> %s", default_out))
-  generate_contig_lengths_table_from_dna(opt$dna, opt$sample, default_out)
+  message(sprintf("[log] Auto-generating contig lengths -> %s", default_out))
+  generate_contig_lengths_table_from_dna(opt$genome, opt$sample, default_out)
 }
 
 read_contig_lengths <- function(path, genome) {
@@ -1128,14 +1108,14 @@ run <- function(opt) {
 
   pathway_map_path <- if (!is.null(opt$pathway_map) && nzchar(opt$pathway_map)) opt$pathway_map else infer_default_pathway_map()
   if (!file.exists(pathway_map_path)) stop(sprintf("[ERROR] Pathway map file not found: %s", pathway_map_path), call. = FALSE)
-  message(sprintf("[info] Using pathway map: %s", pathway_map_path))
+  message(sprintf("[log] Using pathway map: %s", pathway_map_path))
 
   sample_dir <- file.path(opt$outdir, paste0(genome, "_circos_plot"))
   ensure_dir(sample_dir)
 
   pathway_df <- load_pathway_map(pathway_map_path)
 
-  contig_lengths_path <- ensure_contig_lengths(opt, sample_dir)
+  contig_lengths_path <- generate_contig_lengths_for_sample(opt, sample_dir)
   contig_lengths <- read_contig_lengths(contig_lengths_path, genome)
   if (nrow(contig_lengths) == 0) stop(sprintf("[ERROR] No contig lengths found for genome: %s", genome), call. = FALSE)
 
@@ -1148,7 +1128,7 @@ run <- function(opt) {
   )
 
   gc_skew_df <- compute_gc_skew_windows(
-    dna_path = opt$dna,
+    dna_path = opt$genome,
     contigs_to_keep = contig_lengths$contig,
     window_size = opt$window_size,
     step_size = opt$window_size
@@ -1220,7 +1200,7 @@ run <- function(opt) {
   write_hmm_colors_tsv(file.path(sample_dir, "hmm_colors.tsv"), cmap)
   write_karyotype_tsv(file.path(sample_dir, "karyotype.tsv"), contig_lengths)
   write_gene_labels_tsv(file.path(sample_dir, "gene_labels.tsv"), features)
-  write_genbank_hits_gbk(file.path(sample_dir, "btex_hmm_hits.gbk"), genome, features, cmap, opt$dna)
+  write_genbank_hits_gbk(file.path(sample_dir, "btex_hmm_hits.gbk"), genome, features, cmap, opt$genome)
   write_gc_skew_tsv(file.path(sample_dir, "gc_skew_windows.tsv"), gc_skew_df)
 
   if (nrow(kofam_hit_df) > 0) {
@@ -1252,10 +1232,9 @@ run <- function(opt) {
 option_list <- list(
   make_option("--hmmscan", type = "character", help = "Path to btex_hmm_summary.csv or similar hmmscan summary CSV"),
   make_option(c("-o", "--outdir"), type = "character", help = "Output directory"),
-  make_option("--dna", type = "character", default = NULL, help = "Genome FASTA file for the selected sample"),
+  make_option("-g", "--genome", type = "character", default = NULL, help = "Genome FASTA file for the selected sample"),
   make_option("--prodigal-gbk", dest = "prodigal_gbk", type = "character", default = NULL, help = "Prodigal GenBank file used to map KOfam hits to genomic coordinates"),
   make_option(c("-s", "--sample"), type = "character", help = "Sample/genome name to plot"),
-  make_option("--contig-lengths", dest = "contig_lengths", type = "character", default = NULL, help = "Optional TSV with columns: sample, contig, length"),
   make_option("--pathway-map", dest = "pathway_map", type = "character", default = NULL, help = "Optional override for pathway_map.tsv"),
   make_option("--kofam", type = "character", default = NULL, help = "Optional KOfamScan detail output or a table with query_id and ko columns, including gene_name and KO style tables"),
   make_option("--ko-category-map", dest = "ko_category_map", type = "character", default = NULL, help = "Optional table with columns KO, category, color for KOfam density plotting"),
@@ -1266,7 +1245,7 @@ option_list <- list(
 parser <- OptionParser(option_list = option_list)
 opt <- parse_args(parser)
 
-if (is.null(opt$hmmscan) || is.null(opt$outdir) || is.null(opt$sample)) {
+if (is.null(opt$hmmscan) || is.null(opt$outdir) || is.null(opt$sample) || is.null(opt$genome)) {
   print_help(parser)
   quit(status = 1)
 }

@@ -21,19 +21,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="CSV (btex_hmm_summary.csv): hit-level hmmscan output with sample, hmm, and hit_header columns.",
     )
     ap.add_argument(
-        "--contig-lengths",
-        help=(
-            "TSV: sample<TAB>contig<TAB>length. "
-            "If omitted, contig_length.tsv is generated under the Circos output dir using --dna."
-        ),
+        "-o", "--outdir", required=True, help="Output dir"
     )
-    ap.add_argument("-o", "--outdir", required=True, help="Output dir")
     ap.add_argument("-s", "--sample", required=True, help="Sample/genome name to plot (must match sample column in --hmmscan)")
     ap.add_argument(
-        "--dna",
+        "-g",
+        "--genome",
+        required=True,
         help=(
             "Path to the genome nucleotide FASTA (.fna/.fasta). "
-            "Used to generate contig lengths when --contig-lengths is omitted."
+            "Used to generate contig lengths for the Circos plot."
         ),
     )
     ap.add_argument(
@@ -70,10 +67,8 @@ def main(argv=None):
         "--outdir", args.outdir,
         "--sample", args.sample,
     ]
-    if args.contig_lengths:
-        cmd += ["--contig-lengths", args.contig_lengths]
-    if args.dna:
-        cmd += ["--dna", args.dna]
+    if args.genome:
+        cmd += ["--genome", args.genome]
     if args.prodigal_gbk:
         cmd += ["--prodigal-gbk", args.prodigal_gbk]
     if args.kofam_output:

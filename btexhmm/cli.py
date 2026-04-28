@@ -62,7 +62,7 @@ def parse_args():
     p.add_argument(
         "--skip-kofam",
         action="store_true",
-        help="Skip the KOfam HMM database download and search after hmmscan completes",
+        help="Skip the KOfam search after hmmscan completes",
     )
     return p.parse_args()
 

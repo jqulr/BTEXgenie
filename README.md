@@ -52,28 +52,25 @@ KOfamScan should be available on the active conda environment PATH when the envi
 
 ### Database download:
 
-The KOfam HMM database can be installed for users interested in the broad metabolic or degradation potential of their genomes
+The KOfam HMM database can be installed for users interested in the broad metabolic or degradation potential of their genomes.
+
+Run the following command to download KOfam database:
 
 ```bash
-mkdir /path/to/databases/kofam
-cd /path/to/databases/kofam
-
-wget https://www.genome.jp/ftp/db/kofam/ko_list.gz
-wget https://www.genome.jp/ftp/db/kofam/profiles.tar.gz
-
-gunzip ko_list.gz
-tar -xzf profiles.tar.gz
+btex-build-db --db-dir /path/to/databases/kofam
 ```
 
-Setting the environment variable:
+This command will:
+
+- download `ko_list.gz` and `profiles.tar.gz`
+- extract them into the requested database directory
+- verify that `profiles/` and `ko_list` were created successfully
+- write `$CONDA_PREFIX/etc/conda/activate.d/kofam.sh` so `KOFAM_DB` is exported automatically on future Conda environment activation
+
+If the target Conda environment is not currently active, provide its prefix with `--conda-prefix`:
 
 ```bash
-# shell scripts placed in activate.d folder to run automatically when env is activated
-mkdir -p $CONDA_PREFIX/etc/conda/activate.d
-
-cat > $CONDA_PREFIX/etc/conda/activate.d/kofam.sh <<'EOF'
-export KOFAM_DB=/path/to/databases/kofam
-EOF
+btex-build-db --db-dir /path/to/databases/kofam --conda-prefix /path/to/conda/env
 ```
 
 Confirm the database path and executable:
@@ -107,7 +104,7 @@ btex-annotate -g /path/to/genome_fastas/dna_fastas \
 ```
 
 > [!NOTE]
-> Use `--skip-kofam` to skip downloading and searching the KOfam database.
+> Use `--skip-kofam` to skip the KOfam search.
 > For FASTA sequence inputs, the program will run gene-calling with Prodigal in `--single` mode as default, unless the `--meta` specified as input. 
 
 **Main outputs**
@@ -188,7 +185,7 @@ btex-vis -g /path/to/prodigal_output \
 ```bash
 btex-run-circos \
   --hmmscan /path/to/btex_hmm_summary.csv \
-  --dna /test_genomes/Aromatoleum_bremense_PbN1T.fna \
+  -g /test_genomes/dna_fastas/Aromatoleum_bremense_PbN1T.fna \
   -o /path/to/output_dir \
   -s "Aromatoleum_bremense_PbN1T" \
   --window-size 5000
@@ -199,7 +196,7 @@ btex-run-circos \
 ```bash
   btex-run-circos \
   --hmmscan /path/to/btex_hmm_summary.csv \
-  --dna /path/to/genome.fna \
+  -g /test_genomes/dna_fastas/Aromatoleum_bremense_PbN1T.fna \
   -o /path/to/outdir \
   -s sample_name \
   --window-size 5000 \
@@ -212,7 +209,7 @@ btex-run-circos \
 **Input:**
 - `btex-run-circos` takes `btex_hmm_summary.csv` together with the genome sequence file for a single sample. In the example above, the genome sequence file for Aromatoleum bremense PbN1T in the test_genomes folder is used.
 - `--window-size` can be use to adjust the window size used to calculate GC-skew for better visualization.
-- Provide a sample name with `-s` that exactly matches the sample name in btex_hmm_summary.csv. 
+- Provide a sample name with `-s` that exactly matches the prefix of the corresponding {genome}.faa file
 
 **Output**
 
