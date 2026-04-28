@@ -4,9 +4,9 @@ from pathlib import Path
 from collections import defaultdict
 
 try:
-    from .logging_utils import run_logged_command
+    from .logging_utils import print_log_only, run_logged_command
 except ImportError:
-    from logging_utils import run_logged_command
+    from logging_utils import print_log_only, run_logged_command
 
 # This script runs hmmscan on all the HMMs with input protein-coding files and outputs detailed TSV 
 # summary with columns: sample, hmm, hits, scores, ievalues, cutoff_used, total_genes, hit_headers.
@@ -360,7 +360,7 @@ def run_hmmscan_for_sample(
     out_dom_ga = domtbl_dir / f"{sample}.ga.domtblout"
 
     # 1) Always write unfiltered domtbl (before GA).
-    print(f"[info] running hmmscan on {protein_faa.name}")
+    print_log_only(f"[info] running hmmscan on {protein_faa.name}")
     cmd_pre = ["hmmscan", "--cpu", str(cpus)]
     if evalue:
         cmd_pre += ["-E", str(evalue)]
@@ -421,7 +421,7 @@ def main(argv: list[str] | None = None):
         ),
     )
     ap.add_argument("--cpus", type=int, default=8, help="threads for hmmscan")
-    ap.add_argument("--evalue", type=str, default=None, help="sequence E-value cutoff for reporting, e.g. 1e-5")
+    ap.add_argument("--evalue", type=str, default="1e-5", help="sequence E-value cutoff for reporting (default: 1e-5)")
     prodigal_group = ap.add_mutually_exclusive_group()
     prodigal_group.add_argument(
         "-meta",
@@ -438,9 +438,9 @@ def main(argv: list[str] | None = None):
         help="use Prodigal single mode when DNA genomes are provided",
     )
     ap.add_argument(
-        "--skip-kofam",
+        "--kofam",
         action="store_true",
-        help="Skip the KOfam search after hmmscan completes",
+        help="Run the KOfam search after hmmscan completes",
     )
     ap.add_argument(
         "--out",
@@ -486,7 +486,7 @@ def main(argv: list[str] | None = None):
         protein_fastas = validated_inputs
         kofam_input_dir = genomes_dir.resolve() if genomes_dir.is_dir() else genomes_dir.parent.resolve()
         if args.prodigal_mode is not None:
-            print("[warn] ignoring Prodigal mode flag because protein FASTA inputs were provided")
+            print_log_only("[warn] ignoring Prodigal mode flag because protein FASTA inputs were provided")
 
     header_maps: dict[str, dict[str, str]] = {}
     samples: list[str] = []
@@ -624,15 +624,15 @@ def main(argv: list[str] | None = None):
 
     print(f"wrote {counts_path}")
 
-    if args.skip_kofam:
-        print("[info] skipping KOfam search (--skip-kofam)")
-    else:
+    if args.kofam:
         try:
             run_kofam_for_inputs(kofam_input_dir, args.cpus)
         except subprocess.CalledProcessError as e:
             raise SystemExit(
                 f"[err] KOfam search failed with exit code {e.returncode}"
             ) from e
+    else:
+        print("[info] skipping KOfam search by default; use --kofam to enable it")
 
 
 if __name__ == "__main__":

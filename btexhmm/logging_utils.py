@@ -42,6 +42,17 @@ class FilteredLogStream(io.TextIOBase):
             self.terminal_stream.write(line)
 
 
+def print_log_only(message, end="\n"):
+    stream = sys.stdout
+    text = f"{message}{end}"
+    if isinstance(stream, FilteredLogStream):
+        stream.log_fh.write(text)
+        stream.log_fh.flush()
+        return
+    stream.write(text)
+    stream.flush()
+
+
 @contextmanager
 def command_logger(log_path: Path):
     log_path.parent.mkdir(parents=True, exist_ok=True)

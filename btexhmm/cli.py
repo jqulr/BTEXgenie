@@ -12,7 +12,7 @@ DEFAULT_HMM_LIB = HERE / "hmms" / "all_models.hmm"
 def parse_args():
     p = argparse.ArgumentParser(
         description=(
-            "Annotate a directory of genome DNA FASTA files or protein FASTA files "
+            "Annotate a directory or single genome DNA FASTA files or protein FASTA files "
             "with the BTEX HMM database. DNA inputs are first gene-called with Prodigal."
         )
     )
@@ -37,7 +37,7 @@ def parse_args():
         "--cpus",
         type=int,
         default=8,
-        help="Number of CPUs for hmmscan",
+        help="Number of CPUs for hmmscan (default: 8)",
     )
     prodigal_group = p.add_mutually_exclusive_group()
     prodigal_group.add_argument(
@@ -52,17 +52,17 @@ def parse_args():
         dest="prodigal_mode",
         action="store_const",
         const="single",
-        help="Use Prodigal single mode for DNA genome inputs (default)",
+        help="Use Prodigal single mode for DNA genome inputs (default mode)",
     )
     p.add_argument(
         "--evalue",
-        default=None,
-        help="Sequence E-value cutoff passed to hmmscan (e.g. 1e-5)",
+        default="1e-5",
+        help="Sequence E-value cutoff passed to hmmscan (default: 1e-5)",
     )
     p.add_argument(
-        "--skip-kofam",
+        "--kofam",
         action="store_true",
-        help="Skip the KOfam search after hmmscan completes",
+        help="Run the HMM search against the KOfam database in addition to the BTEX-HMM database.",
     )
     return p.parse_args()
 
@@ -88,8 +88,8 @@ def main():
         hmmscan_argv.append("-single")
     if args.evalue:
         hmmscan_argv.extend(["--evalue", str(args.evalue)])
-    if args.skip_kofam:
-        hmmscan_argv.append("--skip-kofam")
+    if args.kofam:
+        hmmscan_argv.append("--kofam")
 
     top_cmd = [
         "btex-annotate",
@@ -106,11 +106,13 @@ def main():
         top_cmd.append("--single")
     if args.evalue:
         top_cmd.extend(["--evalue", str(args.evalue)])
-    if args.skip_kofam:
-        top_cmd.append("--skip-kofam")
+    if args.kofam:
+        top_cmd.append("--kofam")
 
     log_path = outdir / "btex_annotate.log"
     with command_logger(log_path):
         print(f"[info] writing btex-annotate log to {log_path}")
         print(f"[cmd] {shlex.join(top_cmd)}")
+        print("[info] running BTEXgenie on input genomes")
         hmmscan_main(hmmscan_argv)
+        print("Done!")

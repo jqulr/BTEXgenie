@@ -90,6 +90,7 @@ To run BTEX-HMMs, input can be either a directory or single file containing geno
 ```bash
 btex-annotate -g btexhmm/test_genomes/protein_fastas \
               -o path/to/output_dir \
+              --kofam \
               --evalue 1e-5 \
               --cpus 8
 ```
@@ -100,11 +101,12 @@ btex-annotate -g btexhmm/test_genomes/protein_fastas \
 ```bash
 btex-annotate -g /path/to/genome_fastas/dna_fastas \
               -o path/to/output_dir \
+              --kofam \
               --cpus 8
 ```
 
 > [!NOTE]
-> Use `--skip-kofam` to skip the KOfam search.
+> Use `--kofam` to run the KOfam search. By default, `btex-annotate` skips KOfam and only runs the BTEX HMM search.
 > For FASTA sequence inputs, the program will run gene-calling with Prodigal in `--single` mode as default, unless the `--meta` specified as input. 
 
 **Main outputs**
@@ -119,7 +121,7 @@ btex-annotate -g /path/to/genome_fastas/dna_fastas \
    Generated when genome DNA sequences are used as input. This directory contains one subdirectory per genome and contains:  
    ` {genome}_prodigal.gbk `  
    ` {genome}.faa `  
-   ` {genome}_kofam_abv_thres.tsv `, produced when the KOfam step runs successfully for that sample.
+   ` {genome}_kofam_abv_thres.tsv `, produced when `--kofam` is enabled and the KOfam step runs successfully for that sample.
 
 4. `hmmscan_output/`  
    Contains one subdirectory per input file with raw `.domtblout` results generated before and after filtering by GA thresholds.
