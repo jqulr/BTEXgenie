@@ -1,14 +1,15 @@
-# BTEX-HMM: A database for the functional annotation of BTEX-degradation genes from isolate genomes and metagenomes
+# BTEXgenie: A curated and user-friendly tool for profile HMM-based substrate-specific annotation of BTEX degradation genes
 
 ## Table of Contents
 * [Installation](#installation)
+* [KOfam database download](#database_download)
 * [Usage](#usage)
-* [KEGG Pathway visualizations](#kEGG-Pathway-visualizations)
-* [Circos plot visualizations](#Circos-plot-visualizations)
+* [KEGG Pathway visualizations](#kegg-Pathway-visualizations)
+* [Circos plot visualizations](#circos-plot-visualizations)
 
 ## Installation
 
-This toolkit uses hmmscan from the HMMER suite to query BTEX-HMM profiles.
+This toolkit uses hmmscan from the HMMER suite to query BTEXgenie profiles.
 The following packages are needed for visualization and analysis:
 
 - python 3.9 or newer
@@ -23,23 +24,23 @@ The following packages are needed for visualization and analysis:
 - biopython 1.81 or newer
 - circos 0.69 or newer
 
-If your system already satisfies these requirements, you can move directly to running the BTEX-HMM scripts. Otherwise, you may install everything through Conda as shown below.
+If your system already satisfies these requirements, you can move directly to running the BTEXgenie scripts. Otherwise, you may install everything through Conda as shown below.
 
 1. Conda Install
 Confirm that a working Conda installation is available. See [Conda installation](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html) for more details.
 
 <!-- ### Development install
-Create the BTEX-HMM environment and install all dependencies plus an editable install of the local repo via *btex_env.yml*: -->
+Create the BTEXgenie environment and install all dependencies plus an editable install of the local repo via *btex_env.yml*: -->
 
 ```bash
-cd /path/to/BTEX-HMMs
-conda env create -n btex-hmm -f btex_env.yml
+cd /path/to/BTEXgenie
+conda env create -n BTEXgenie -f btex_env.yml
 ```
 
 Activate the environment:
 
 ```bash
-conda activate btex-hmm
+conda activate BTEXgenie
 ```
 
 Confirm that the KOfamScan executable is installed:
@@ -76,7 +77,7 @@ btex-build-db --db-dir /path/to/databases/kofam --conda-prefix /path/to/conda/en
 Confirm the database path and executable:
 ```bash
 conda deactivate
-conda activate btex-hmm
+conda activate BTEXgenie
 echo $KOFAM_DB
 command -v exec_annotation
 ```
@@ -84,7 +85,7 @@ command -v exec_annotation
 `KOFAM_DB` should point to the database directory containing `profiles/` and `ko_list`.
 
 ## Usage
-To run BTEX-HMMs, input can be either a directory or single file containing genome DNA FASTA or protein FASTA input.
+To run BTEXgenie, input can be either a directory or single file containing genome DNA FASTA or protein FASTA input.
 
 ### Example with protein files in *test_genomes*
 ```bash
@@ -102,7 +103,7 @@ btex-annotate -g btexhmm/test_genomes/dna_fastas \
 ```
 
 > [!NOTE]
-> Use `--kofam` to run the KOfam search. By default, `btex-annotate` skips KOfam and only runs the BTEXgenie.
+> Use `--kofam` to run the KOfam search. By default, `btex-annotate` skips KOfam and only runs BTEXgenie.
 > For FASTA sequence inputs, the program will run gene-calling with Prodigal in `--single` mode as default, unless the `--meta` specified as input. 
 
 **Main outputs**
@@ -126,9 +127,9 @@ btex-annotate -g btexhmm/test_genomes/dna_fastas \
    Records run progress as well as detailed warning and error messages.
 
 ## KEGG Pathway visualizations
-BTEX-HMM supports visualization of hits to BTEX-HMM or KOfam on KEGG pathways with HTML files.
+BTEXgenie supports visualization of hits to BTEXgenie or KOfam HMMs on KEGG pathways with HTML files.
 
-**For visualization of BTEX-HMM hits on BTEX-associated KEGG pathways:**
+**For visualization of BTEXgenie hits on BTEX-associated KEGG pathways:**
 
 ```bash
 btex-vis --hmmscan /path/to/output_dir/btex_hmm_summary.csv \
@@ -163,7 +164,7 @@ btex-vis -g /path/to/prodigal_output \
 
    The main HTML file that can be opened to view hits on KEGG pathways.
 
-   By default, if `--pathways` is not supplied, BTEX-HMM generates HTML files for the following BTEX-associated KEGG pathways:
+   By default, if `--pathways` is not supplied, BTEXgenie generates HTML files for the following BTEX-associated KEGG pathways:
 
    * `xylene_degradation_00642.html`
    * `toluene_degradation_00623.html`
@@ -183,7 +184,7 @@ btex-vis -g /path/to/prodigal_output \
 ## Circos plot visualizations
 
 
-**BTEX-HMM hits:**
+**BTEXgenie hits:**
 ```bash
 btex-run-circos \
   --hmmscan /path/to/btex_hmm_summary.csv \
@@ -193,7 +194,7 @@ btex-run-circos \
   --window-size 5000
 ```
 
-**KOfam and BTEX-HMM hits:**
+**KOfam and BTEXgenie hits:**
 
 ```bash
   btex-run-circos \
@@ -216,13 +217,13 @@ btex-run-circos \
 **Output**
 
 1. `{output_dir}/circos_plot.pdf`  
-   Main visualization showing the genome track, GC skew track, and genomic distribution of BTEX-HMM hits. Optionally includes a KOfam track displaying hits to xenobiotic degradation pathways on KEGG.
+   Main visualization showing the genome track, GC skew track, and genomic distribution of BTEXgenie hits. Optionally includes a KOfam track displaying hits to xenobiotic degradation pathways on KEGG.
 
 2. `{output_dir}/kofam_density_track_windows.tsv`  
    Table of pathway density values across genomic windows for xenobiotic degradation pathways.
 
 3. `{output_dir}/btex_hmm_hits.gbk`  
-   GenBank formatted file listing genes identified as BTEX-HMM hits.
+   GenBank formatted file listing genes identified as BTEXgenie hits.
 
 4. `{output_dir}/kofam_category_hits.tsv`  
    Table of all KOfam hits with their corresponding KO identifiers.
