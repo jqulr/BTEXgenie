@@ -65,7 +65,7 @@ This command will:
 - download `ko_list.gz` and `profiles.tar.gz`
 - extract them into the requested database directory
 - verify that `profiles/` and `ko_list` were created successfully
-- write `$CONDA_PREFIX/etc/conda/activate.d/kofam.sh` so `KOFAM_DB` is exported automatically on future Conda environment activation
+- write `$CONDA_PREFIX/etc/conda/activate.d/kofam.sh` so `KOFAM_DB` is exported automatically when Conda environment is activated
 
 If the target Conda environment is not currently active, provide its prefix with `--conda-prefix`:
 
@@ -89,24 +89,20 @@ To run BTEX-HMMs, input can be either a directory or single file containing geno
 ### Example with protein files in *test_genomes*
 ```bash
 btex-annotate -g btexhmm/test_genomes/protein_fastas \
-              -o path/to/output_dir \
-              --kofam \
-              --evalue 1e-5 \
-              --cpus 8
+              -o path/to/output_dir 
 ```
 > [!NOTE]
 > For proper parsing of genomic coordinates, protein files produced from Prodigal are needed.
 
 ### Example with genome FASTA files
 ```bash
-btex-annotate -g /path/to/genome_fastas/dna_fastas \
+btex-annotate -g btexhmm/test_genomes/dna_fastas \
               -o path/to/output_dir \
-              --kofam \
-              --cpus 8
+              --kofam 
 ```
 
 > [!NOTE]
-> Use `--kofam` to run the KOfam search. By default, `btex-annotate` skips KOfam and only runs the BTEX HMM search.
+> Use `--kofam` to run the KOfam search. By default, `btex-annotate` skips KOfam and only runs the BTEXgenie.
 > For FASTA sequence inputs, the program will run gene-calling with Prodigal in `--single` mode as default, unless the `--meta` specified as input. 
 
 **Main outputs**
@@ -130,7 +126,7 @@ btex-annotate -g /path/to/genome_fastas/dna_fastas \
    Records run progress as well as detailed warning and error messages.
 
 ## KEGG Pathway visualizations
-BTEX-HMM supports visualization of hits to BTEX-HMM or KOfam on KEGG pathways.
+BTEX-HMM supports visualization of hits to BTEX-HMM or KOfam on KEGG pathways with HTML files.
 
 **For visualization of BTEX-HMM hits on BTEX-associated KEGG pathways:**
 
@@ -140,14 +136,18 @@ btex-vis --hmmscan /path/to/output_dir/btex_hmm_summary.csv \
 ```
 
 > [!Note]
-> `btex-vis` takes the `prodigal_output` directory with `{genome}_kofam_abv_thres.tsv` per input genome instead of `btex_hmm_summary.csv` for visualizing all KOfam hits on an interested pathway.
 > Using -s {genome} generates a visualization for hits from a specific genome. The {genome} value must exactly match either the sample name in btex_hmm_summary.csv or the genome prefix of the corresponding {genome}.faa file.
 
+```bash
+btex-vis --hmmscan /path/to/output_dir/btex_hmm_summary.csv \
+         -s Georgfuchsia_toluolica_G5G6 \
+         -o /path/to/btex-vis-outputs
+```
 
- An example annotated pathway generated via the KEGG URL is available [here](https://www.kegg.jp/kegg-bin/show_pathway?map=map00642&multi_query=ko:K14748%20%23F08A8B,%23FF0000%0Ako:K14749%20%23F08A8B,%23FF0000%0Ako:K10700%20%23F08A8B,%23FF0000%20%23377EB8,%23FF0000%0Ako:K17048%20%23F08A8B,%23FF0000%20%23377EB8,%23FF0000%0Ako:K17049%20%23F08A8B,%23FF0000%20%23377EB8,%23FF0000%0Ako:K14579%20%23FFFFFF,%23FF0000%0Ako:K14580%20%23FFFFFF,%23FF0000
+ An example annotated pathway generated is available [here](https://www.kegg.jp/kegg-bin/show_pathway?map=map00642&multi_query=ko:K14748%20%23F08A8B,%23FF0000%0Ako:K14749%20%23F08A8B,%23FF0000%0Ako:K10700%20%23F08A8B,%23FF0000%20%23377EB8,%23FF0000%0Ako:K17048%20%23F08A8B,%23FF0000%20%23377EB8,%23FF0000%0Ako:K17049%20%23F08A8B,%23FF0000%20%23377EB8,%23FF0000%0Ako:K14579%20%23FFFFFF,%23FF0000%0Ako:K14580%20%23FFFFFF,%23FF0000
  ).
 
-**For visualization of all KOfam hits on a KEGG pathway:**
+**For visualization of KOfam hits on a KEGG pathway:**
 
 ```bash
 btex-vis -g /path/to/prodigal_output \
@@ -155,7 +155,7 @@ btex-vis -g /path/to/prodigal_output \
          --pathways 00623
 ```
 > [!Note]
-> btex-vis takes the `prodigal_output` directory with `{genome}_kofam_abv_thres.tsv` per input genome instead of `btex_hmm_summary.csv` for visualizing all KOfam hits on an interested pathway.
+> btex-vis takes the `prodigal_output` directory with `{genome}_kofam_abv_thres.tsv` per input genome instead of `btex_hmm_summary.csv` for visualizing all KOfam hits on an interested pathway. The `prodigal_output` directory is created by`btex-annotate` with the `--kofam` flag.
 
 
 **Outputs:**
@@ -206,7 +206,7 @@ btex-run-circos \
   --kofam-output /path/to/kofam_abv_thres.tsv 
 ```
 > [!Note]
-> btex-run-circos takes `--prodigal-gbk` which specifies the prodigal genbank file for parsing genomic coordinates of genes and `--kofam-output` which contain all hits to KOfam HMM database. 
+> btex-run-circos takes `--prodigal-gbk` which specifies the prodigal genbank file for parsing genomic coordinates of genes and `--kofam-output` which contain all hits to KOfam HMM database. These are files are produced by `btex-annotate` with the `--kofam` flag.
 
 **Input:**
 - `btex-run-circos` takes `btex_hmm_summary.csv` together with the genome sequence file for a single sample. In the example above, the genome sequence file for Aromatoleum bremense PbN1T in the test_genomes folder is used.
