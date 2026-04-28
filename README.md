@@ -87,11 +87,11 @@ command -v exec_annotation
 `KOFAM_DB` should point to the database directory containing `profiles/` and `ko_list`.
 
 ## Usage
-To run BTEX-HMMs, input should be a directory containing either genome DNA FASTA files or protein FASTA files.
+To run BTEX-HMMs, input can be either a directory or single file containing genome DNA FASTA or protein FASTA input.
 
 ### Example with protein files in *test_genomes*
 ```bash
-btex-annotate -g btexhmm/test_genomes \
+btex-annotate -g btexhmm/test_genomes/protein_fastas \
               -o path/to/output_dir \
               --evalue 1e-5 \
               --cpus 8
@@ -101,15 +101,14 @@ btex-annotate -g btexhmm/test_genomes \
 
 ### Example with genome FASTA files
 ```bash
-btex-annotate -g /path/to/genome_fastas \
+btex-annotate -g /path/to/genome_fastas/dna_fastas \
               -o path/to/output_dir \
-              --meta \
               --cpus 8
 ```
 
 > [!NOTE]
 > Use `--skip-kofam` to skip downloading and searching the KOfam database.
-> For FASTA sequence inputs, the program will run gene-calling with Prodigal with either the `--meta` or `--single` flag specified as input. 
+> For FASTA sequence inputs, the program will run gene-calling with Prodigal in `--single` mode as default, unless the `--meta` specified as input. 
 
 **Main outputs**
 

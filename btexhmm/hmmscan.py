@@ -416,7 +416,7 @@ def main(argv: list[str] | None = None):
         dest="genomes_dir",
         required=True,
         help=(
-            "Directory containing either genome DNA FASTA files or protein FASTA files. "
+            "Directory or single file containing either genome DNA FASTA files or protein FASTA files. "
             "Input files must all be the same type."
         ),
     )

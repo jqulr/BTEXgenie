@@ -23,7 +23,7 @@ def parse_args():
         metavar="GENOMES",
         required=True,
         help=(
-            "Directory containing genome DNA FASTA files or protein FASTA files "
+            "Directory or single file containing genome DNA FASTA or protein FASTA input "
             "(for example *.fna, *.fa, *.fasta, *.faa)."
         ),
     )
@@ -52,7 +52,7 @@ def parse_args():
         dest="prodigal_mode",
         action="store_const",
         const="single",
-        help="Use Prodigal single mode for DNA genome inputs",
+        help="Use Prodigal single mode for DNA genome inputs (default)",
     )
     p.add_argument(
         "--evalue",
@@ -69,6 +69,7 @@ def parse_args():
 
 def main():
     args = parse_args()
+    prodigal_mode = args.prodigal_mode or "single"
 
     genomes = Path(args.genome_dir).resolve()
     outdir = Path(args.outdir).resolve()
@@ -81,9 +82,9 @@ def main():
         "--out", str(out_csv),
         "--cpus", str(args.cpus),
     ]
-    if args.prodigal_mode == "meta":
+    if prodigal_mode == "meta":
         hmmscan_argv.append("-meta")
-    elif args.prodigal_mode == "single":
+    elif prodigal_mode == "single":
         hmmscan_argv.append("-single")
     if args.evalue:
         hmmscan_argv.extend(["--evalue", str(args.evalue)])
@@ -99,9 +100,9 @@ def main():
         "--cpus",
         str(args.cpus),
     ]
-    if args.prodigal_mode == "meta":
+    if prodigal_mode == "meta":
         top_cmd.append("--meta")
-    elif args.prodigal_mode == "single":
+    elif prodigal_mode == "single":
         top_cmd.append("--single")
     if args.evalue:
         top_cmd.extend(["--evalue", str(args.evalue)])
