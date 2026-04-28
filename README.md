@@ -51,7 +51,7 @@ command -v exec_annotation
 
 KOfamScan should be available on the active conda environment PATH when the environment is set up correctly.
 
-### Database download:
+## Database download:
 
 The KOfam HMM database can be installed for users interested in the broad metabolic or degradation potential of their genomes.
 
