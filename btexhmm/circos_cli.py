@@ -79,10 +79,10 @@ def main(argv=None):
     if args.kofam_output:
         cmd += ["--kofam", args.kofam_output]
 
-    log_path = Path(args.outdir).expanduser().resolve() / "log_file_run-circos.txt"
+    log_path = Path(args.outdir).expanduser().resolve() / "btex_run_circos.log"
     with command_logger(log_path):
-        print(f"[info] writing run-circos log to {log_path}")
-        print(f"[cmd] {shlex.join(['run-circos', *[str(part) for part in cmd[2:]]])}")
+        print(f"[info] writing btex-run-circos log to {log_path}")
+        print(f"[cmd] {shlex.join(['btex-run-circos', *[str(part) for part in cmd[2:]]])}")
         run_logged_command(cmd)
 
     return 0

@@ -2,6 +2,7 @@ import argparse
 import shlex
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 try:
@@ -58,6 +59,10 @@ def parse_args():
 
 
 def main():
+    pathways_supplied = any(
+        arg == "--pathways" or arg.startswith("--pathways=")
+        for arg in sys.argv[1:]
+    )
     args = parse_args()
 
     if bool(args.hmmscan) == bool(args.genome_dir):
@@ -92,6 +97,8 @@ def main():
         "--outdir",
         str(outdir),
     ]
+    if pathways_supplied:
+        cmd.extend(["--pathways-supplied"])
     if args.hmmscan:
         hmmscan = Path(args.hmmscan).expanduser().resolve()
         if not hmmscan.exists():
@@ -102,11 +109,16 @@ def main():
         if not genome_dir.exists():
             raise SystemExit(f"--genome-dir not found: {genome_dir}")
         cmd[2:2] = ["--genome-dir", str(genome_dir)]
-    log_path = outdir / "log_file_vis-btex.txt"
+    log_path = outdir / "btex_vis.log"
     try:
         with command_logger(log_path):
-            print(f"[info] writing vis-btex log to {log_path}")
-            print(f"[cmd] {shlex.join(['vis-btex', *[str(part) for part in cmd[2:]]])}")
+            print(f"[info] writing btex-vis log to {log_path}")
+            if not pathways_supplied:
+                if args.genome_dir:
+                    print(f"[info] Scanning genome for default pathways ({DEFAULT_PATHWAYS})")
+                else:
+                    print(f"[info] Scanning input for default pathways ({DEFAULT_PATHWAYS})")
+            print(f"[cmd] {shlex.join(['btex-vis', *[str(part) for part in cmd[2:]]])}")
             run_logged_command(cmd)
     except subprocess.CalledProcessError as exc:
         raise SystemExit(exc.returncode)

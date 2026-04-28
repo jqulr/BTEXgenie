@@ -91,7 +91,7 @@ To run BTEX-HMMs, input should be a directory containing either genome DNA FASTA
 
 ### Example with protein files in *test_genomes*
 ```bash
-annotate-btex -g btexhmm/test_genomes \
+btex-annotate -g btexhmm/test_genomes \
               -o path/to/output_dir \
               --evalue 1e-5 \
               --cpus 8
@@ -101,7 +101,7 @@ annotate-btex -g btexhmm/test_genomes \
 
 ### Example with genome FASTA files
 ```bash
-annotate-btex -g /path/to/genome_fastas \
+btex-annotate -g /path/to/genome_fastas \
               -o path/to/output_dir \
               --meta \
               --cpus 8
@@ -128,7 +128,7 @@ annotate-btex -g /path/to/genome_fastas \
 4. `hmmscan_output/`  
    Contains one subdirectory per input file with raw `.domtblout` results generated before and after filtering by GA thresholds.
 
-5. `log_file_annotate-btex.txt`  
+5. `btex_annotate.log`  
    Records run progress as well as detailed warning and error messages.
 
 ## KEGG Pathway visualizations
@@ -137,13 +137,13 @@ BTEX-HMM supports visualization of hits to BTEX-HMM or KOfam on KEGG pathways.
 **For visualization of BTEX-HMM hits on BTEX-associated KEGG pathways:**
 
 ```bash
-vis-btex --hmmscan /path/to/output_dir/btex_hmm_summary.csv \
-         -o /path/to/vis-btex-outputs
+btex-vis --hmmscan /path/to/output_dir/btex_hmm_summary.csv \
+         -o /path/to/btex-vis-outputs
 ```
 
 > [!Note]
-> `vis-btex` takes the `prodigal_output` directory with `{genome}_kofam_abv_thres.tsv` per input genome instead of `btex_hmm_summary.csv` for visualizing all KOfam hits on an interested pathway.
-> Using `-s {genome}` generates the visualization for hits specific to {genome}. The value of {genome} must exactly match the sample name in `btex_hmm_summary.csv`. 
+> `btex-vis` takes the `prodigal_output` directory with `{genome}_kofam_abv_thres.tsv` per input genome instead of `btex_hmm_summary.csv` for visualizing all KOfam hits on an interested pathway.
+> Using -s {genome} generates a visualization for hits from a specific genome. The {genome} value must exactly match either the sample name in btex_hmm_summary.csv or the genome prefix of the corresponding {genome}.faa file.
 
 
  An example annotated pathway generated via the KEGG URL is available [here](https://www.kegg.jp/kegg-bin/show_pathway?map=map00642&multi_query=ko:K14748%20%23F08A8B,%23FF0000%0Ako:K14749%20%23F08A8B,%23FF0000%0Ako:K10700%20%23F08A8B,%23FF0000%20%23377EB8,%23FF0000%0Ako:K17048%20%23F08A8B,%23FF0000%20%23377EB8,%23FF0000%0Ako:K17049%20%23F08A8B,%23FF0000%20%23377EB8,%23FF0000%0Ako:K14579%20%23FFFFFF,%23FF0000%0Ako:K14580%20%23FFFFFF,%23FF0000
@@ -152,25 +152,31 @@ vis-btex --hmmscan /path/to/output_dir/btex_hmm_summary.csv \
 **For visualization of all KOfam hits on a KEGG pathway:**
 
 ```bash
-vis-btex -g /path/to/prodigal_output \
-         -o /path/to/vis-btex-outputs \
-         --pathway 00623
+btex-vis -g /path/to/prodigal_output \
+         -o /path/to/btex-vis-outputs \
+         --pathways 00623
 ```
 > [!Note]
-> vis-btex takes the `prodigal_output` directory with `{genome}_kofam_abv_thres.tsv` per input genome instead of `btex_hmm_summary.csv` for visualizing all KOfam hits on an interested pathway.
+> btex-vis takes the `prodigal_output` directory with `{genome}_kofam_abv_thres.tsv` per input genome instead of `btex_hmm_summary.csv` for visualizing all KOfam hits on an interested pathway.
+
 
 **Outputs:**
-1. {output_dir}/`KEGG_MAP_LINKS.txt` 
-   Contains the URLs for visualizing hits on KEGG pathways. 
-   
-   By default, these links correspond to the following KEGG pathways:
-    - `map00642` xylene degradation
-    - `map00623` toluene degradation
-    - `map00622` ethylbenzene degradation
-    - `map00362` benzoate degradation
-   
-   To visualize additional pathways, run `annotate-btex` with the KOfam step enabled so that KEGG pathway information is available. This allows visualization of other pathways such as `map00626` for naphthalene degradation.
+1. `{output_dir}/{pathway_name}_{pathway_ID}.html`
 
+   The main HTML file that can be opened to view hits on KEGG pathways.
+
+   By default, if `--pathways` is not supplied, BTEX-HMM generates HTML files for the following BTEX-associated KEGG pathways:
+
+   * `xylene_degradation_00642.html`
+   * `toluene_degradation_00623.html`
+   * `ethylbenzene_degradation_00622.html`
+   * `benzoate_degradation_00362.html`
+
+   > [!NOTE]
+   > An HTML file is not generated for a pathway if no hits are detected for that pathway.
+
+   Users can also provide additional KEGG pathway IDs with `--pathways`. 
+   A full list of KEGG pathways is available [here](https://www.genome.jp/kegg/pathway.html#energy).
 
 2. {output_dir}/`sample_color_legend.tsv` 
    Contains the color assigned to each input genome for KEGG pathway visualization.
@@ -181,7 +187,7 @@ vis-btex -g /path/to/prodigal_output \
 
 **BTEX-HMM hits:**
 ```bash
-run-circos \
+btex-run-circos \
   --hmmscan /path/to/btex_hmm_summary.csv \
   --dna /test_genomes/Aromatoleum_bremense_PbN1T.fna \
   -o /path/to/output_dir \
@@ -192,7 +198,7 @@ run-circos \
 **KOfam and BTEX-HMM hits:**
 
 ```bash
-  run-circos \
+  btex-run-circos \
   --hmmscan /path/to/btex_hmm_summary.csv \
   --dna /path/to/genome.fna \
   -o /path/to/outdir \
@@ -202,12 +208,12 @@ run-circos \
   --kofam-output /path/to/kofam_abv_thres.tsv 
 ```
 > [!Note]
-> run-circos takes `--prodigal-gbk` which specifies the prodigal genbank file for parsing genomic coordinates of genes and `--kofam-output` which contain all hits to KOfam HMM database. 
+> btex-run-circos takes `--prodigal-gbk` which specifies the prodigal genbank file for parsing genomic coordinates of genes and `--kofam-output` which contain all hits to KOfam HMM database. 
 
 **Input:**
-- `run-circos` takes `btex_hmm_summary.csv` together with the genome sequence file for a single sample. In the example above, the genome sequence file for Aromatoleum bremense PbN1T in the test_genomes folder is used.
+- `btex-run-circos` takes `btex_hmm_summary.csv` together with the genome sequence file for a single sample. In the example above, the genome sequence file for Aromatoleum bremense PbN1T in the test_genomes folder is used.
 - `--window-size` can be use to adjust the window size used to calculate GC-skew for better visualization.
-- Provide a sample name with `-s` that exactly matches the sample name in btex_hmm_summary.csv.
+- Provide a sample name with `-s` that exactly matches the sample name in btex_hmm_summary.csv. 
 
 **Output**
 
@@ -231,4 +237,3 @@ run-circos \
 <p align="center">
   <img src="img/Aromatoleum_bremense_PbN1T_circos.png" width="800">
 </p>
-

@@ -91,7 +91,7 @@ def main():
         hmmscan_argv.append("--skip-kofam")
 
     top_cmd = [
-        "annotate-btex",
+        "btex-annotate",
         "-g",
         str(genomes),
         "-o",
@@ -108,8 +108,8 @@ def main():
     if args.skip_kofam:
         top_cmd.append("--skip-kofam")
 
-    log_path = outdir / "log_file_annotate-btex.txt"
+    log_path = outdir / "btex_annotate.log"
     with command_logger(log_path):
-        print(f"[info] writing annotate-btex log to {log_path}")
+        print(f"[info] writing btex-annotate log to {log_path}")
         print(f"[cmd] {shlex.join(top_cmd)}")
         hmmscan_main(hmmscan_argv)

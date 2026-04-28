@@ -6,7 +6,7 @@ from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from pathlib import Path
 
 
-VISIBLE_PREFIXES = ("[*]", "[info]", "[warn]", "[err]")
+VISIBLE_PREFIXES = ("[*]", "[info]", "[warn]", "[warning]", "[err]")
 
 
 class FilteredLogStream(io.TextIOBase):
@@ -38,7 +38,7 @@ class FilteredLogStream(io.TextIOBase):
     def _emit(self, line):
         self.log_fh.write(line)
         stripped = line.lstrip()
-        if stripped.startswith(VISIBLE_PREFIXES):
+        if stripped.startswith(VISIBLE_PREFIXES) or stripped.startswith("Done!"):
             self.terminal_stream.write(line)
 
 

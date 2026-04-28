@@ -1,10 +1,10 @@
 #!/usr/bin/env Rscript
 
-# Build KEGG `show_pathway` URLs from hmmscan hits.
-# This script only writes links to KEGG maps and tsv files for inspection, it does not download images.
+# Build KEGG `show_pathway` launchers from hmmscan hits.
+# This script writes HTML launchers and tsv files for inspection, it does not download images.
 #
 # Output directory contains:
-# KEGG_MAP_LINKS.txt
+# {pathway_name}_{pathway_ID}.html
 # sample_color_legend.tsv
 
 suppressPackageStartupMessages({
@@ -23,6 +23,8 @@ option_list <- list(
               help = "KO mapping table (gene/hmm/subunit + ko column)"),
   make_option(c("--pathways"), type = "character",
               help = "Comma separated KEGG map IDs, e.g. 00623,00642"),
+  make_option(c("--pathways-supplied"), action = "store_true", dest = "pathways_supplied", default = FALSE,
+              help = "Internal flag indicating --pathways was explicitly supplied"),
   make_option(c("--outdir"), type = "character", default = "kegg_urls",
               help = "Output directory")
 )
@@ -65,38 +67,52 @@ read_ko_map <- function(path) {
   out
 }
 
-read_pathway_categories <- function(path) {
-  tab <- read.delim(path, sep = "\t", header = TRUE, stringsAsFactors = FALSE, check.names = FALSE)
-  nms_l <- tolower(names(tab))
-
-  pathway_idx <- which(nms_l %in% c("source_pathway", "pathway", "pathway_id"))[1]
-  category_idx <- which(nms_l == "category")[1]
-  if (is.na(pathway_idx) || is.na(category_idx)) {
-    stop("Pathway category map must contain source_pathway/pathway/pathway_id and category columns")
-  }
-
-  pathway_col <- names(tab)[pathway_idx]
-  category_col <- names(tab)[category_idx]
-
-  pathways <- trimws(as.character(tab[[pathway_col]]))
-  pathways <- sub("^map", "", pathways, ignore.case = TRUE)
-  categories <- trimws(as.character(tab[[category_col]]))
-
-  keep <- nzchar(pathways) & nzchar(categories)
-  tab <- data.frame(
-    pathway = pathways[keep],
-    category = categories[keep],
-    stringsAsFactors = FALSE
-  )
-  tab <- tab[!duplicated(tab$pathway), , drop = FALSE]
-  setNames(tab$category, tab$pathway)
-}
-
 sanitize_filename_part <- function(x) {
   x <- tolower(trimws(x))
   x <- gsub("[^a-z0-9]+", "_", x)
   x <- gsub("^_+|_+$", "", x)
   x
+}
+
+normalize_pathway_id <- function(pid) {
+  pid <- trimws(pid)
+  pid <- sub("^(map|ko)", "", pid, ignore.case = TRUE)
+  pid
+}
+
+pathway_metadata_cache <- new.env(parent = emptyenv())
+
+get_pathway_metadata <- function(pid) {
+  pid <- normalize_pathway_id(pid)
+  if (exists(pid, envir = pathway_metadata_cache, inherits = FALSE)) {
+    return(get(pid, envir = pathway_metadata_cache, inherits = FALSE))
+  }
+
+  entry_id <- paste0("map", pid)
+  entry_url <- paste0("https://rest.kegg.jp/get/", entry_id)
+  entry_lines <- tryCatch(readLines(entry_url, warn = FALSE), error = function(e) character(0))
+
+  title <- ""
+  if (length(entry_lines) > 0) {
+    name_idx <- grep("^NAME\\s+", entry_lines)
+    if (length(name_idx) > 0) {
+      title <- trimws(sub("^NAME\\s+", "", entry_lines[name_idx[1]]))
+      title <- sub("\\s*-\\s*reference pathway$", "", title, ignore.case = TRUE)
+    }
+  }
+
+  if (!nzchar(title)) {
+    title <- paste("pathway", pid)
+  }
+
+  filename_stub <- sanitize_filename_part(title)
+  if (!nzchar(filename_stub)) {
+    filename_stub <- paste0("pathway_", pid)
+  }
+
+  out <- list(pid = pid, title = title, filename_stub = filename_stub)
+  assign(pid, out, envir = pathway_metadata_cache)
+  out
 }
 
 read_kos_from_kofam_detail <- function(path) {
@@ -291,9 +307,6 @@ write_sample_color_legend <- function(path, sample_colors) {
   write.table(df, file = path, sep = "\t", quote = FALSE, row.names = FALSE, col.names = TRUE)
 }
 
-category_map_path <- "/home/juneq/BTEX-HMMs/btexhmm/data/A_ko_category_map.tsv"
-pathway_categories <- read_pathway_categories(category_map_path)
-
 set_kegg_ua()
 
 input_mode <- if (!is.null(opt$genome_dir) && nzchar(opt$genome_dir)) "genome_dir" else "hmmscan"
@@ -349,10 +362,10 @@ if (identical(input_mode, "hmmscan")) {
 }
 
 dir.create(opt$outdir, showWarnings = FALSE, recursive = TRUE)
-log_file <- file.path(opt$outdir, "KEGG_MAP_LINKS.txt")
 
 pids <- trimws(strsplit(opt$pathways, ",")[[1]])
-cat("Generated KEGG show_pathway Links\n=================================\n", file = log_file)
+pids <- pids[nzchar(pids)]
+pids <- vapply(pids, normalize_pathway_id, character(1))
 
 if (!is.null(opt$sample) && tolower(opt$sample) != "all") {
   samp <- opt$sample
@@ -415,6 +428,11 @@ write_kegg_html_launcher <- function(path, pid, multi_query_raw) {
 }
 
 for (pid in pids) {
+  pathway_meta <- get_pathway_metadata(pid)
+  if (isTRUE(opt$pathways_supplied)) {
+    input_label <- if (identical(input_mode, "genome_dir")) "genome" else "input"
+    message("[info] Scanning ", input_label, " for ", pathway_meta$filename_stub, ", ", pid)
+  }
   kos_by_sample_run <- kos_by_sample[run_samples]
   pathway_kos <- get_pathway_kos_from_kgml(pid)
   pathway_ko_groups <- get_pathway_ko_groups_from_kgml(pid)
@@ -448,54 +466,20 @@ for (pid in pids) {
 
   # ── empty result ─────────────────────────────────────────────────────────────
   if (!nzchar(mq)) {
-    url <- paste0("https://www.kegg.jp/kegg-bin/show_pathway?map=map", pid)
-    cat(paste0("\nPathway ", pid, " (", label, ", no detected KOs on pathway):\n", url, "\n"),
-      file = log_file, append = TRUE
+    message(
+      "[warning] No hits detected for ",
+      pathway_meta$filename_stub, "_", pid,
+      " (", label, "); no HTML output generated."
     )
     next
   }
 
-  # ── write GET url (kept as reference / for short payloads) ──────────────────
-  show_url <- paste0(
-    "https://www.kegg.jp/kegg-bin/show_pathway?map=map", pid,
-    "&multi_query=", mq
-  )
-  url_len <- nchar(show_url)
-
   # ── always write the HTML POST launcher ──────────────────────────────────────
-  category_suffix <- pathway_categories[[pid]]
-  if (is.null(category_suffix) || !nzchar(category_suffix)) {
-    category_suffix <- "uncategorized"
-  }
-  category_suffix <- sanitize_filename_part(category_suffix)
-  html_path <- file.path(opt$outdir, paste0(category_suffix, "_", pid, ".html"))
+  html_path <- file.path(opt$outdir, paste0(pathway_meta$filename_stub, "_", pid, ".html"))
   write_kegg_html_launcher(html_path, pid, mq)
-
-  # ── log both ─────────────────────────────────────────────────────────────────
-  if (url_len <= 1200) {
-    cat(
-      paste0(
-        "\nPathway ", pid, " (", label, ") [URL ", url_len, " chars — OK]:\n",
-        show_url, "\n",
-        "HTML launcher: ", basename(html_path), "\n"
-      ),
-      file = log_file, append = TRUE
-    )
-  } else {
-    cat(
-      paste0(
-        "\nPathway ", pid, " (", label, ") [URL ", url_len,
-        " chars — too long, use HTML launcher]:\n",
-        "GET URL (may fail): ", show_url, "\n",
-        "HTML launcher: ", basename(html_path), "\n"
-      ),
-      file = log_file, append = TRUE
-    )
-  }
 
   # ── presence table (unchanged) ───────────────────────────────────────────────
 }
 
-message("Done")
-message("Links: ", log_file)
+message("Done!")
 message("Legend: ", legend_path)
