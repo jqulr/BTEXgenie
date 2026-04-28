@@ -2,7 +2,7 @@
 
 ## Table of Contents
 * [Installation](#installation)
-* [KOfam database download](#database-download)
+* [KOfam database download](#kofam-database-download)
 * [Usage](#usage)
 * [KEGG Pathway visualizations](#kegg-Pathway-visualizations)
 * [Circos plot visualizations](#circos-plot-visualizations)
