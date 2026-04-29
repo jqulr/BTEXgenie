@@ -42,6 +42,12 @@ def build_parser() -> argparse.ArgumentParser:
         dest="kofam_output",
         help="Optional KOfam hit table to pass through to the Circos R script.",
     )
+    ap.add_argument(
+        "--window-size",
+        dest="window_size",
+        type=int,
+        help="Optional window size for better display of GC-skew and KOfam hits (default: 5000bp).",
+    )
     return ap
 
 
@@ -73,6 +79,8 @@ def main(argv=None):
         cmd += ["--prodigal-gbk", args.prodigal_gbk]
     if args.kofam_output:
         cmd += ["--kofam", args.kofam_output]
+    if args.window_size:
+        cmd += ["--window-size", str(args.window_size)]
 
     log_path = Path(args.outdir).expanduser().resolve() / "btex_run_circos.log"
     with command_logger(log_path):

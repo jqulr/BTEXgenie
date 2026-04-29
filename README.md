@@ -188,7 +188,7 @@ btex-vis -g /path/to/prodigal_output \
 ```bash
 btex-run-circos \
   --hmmscan /path/to/btex_hmm_summary.csv \
-  -g /test_genomes/dna_fastas/Aromatoleum_bremense_PbN1T.fna \
+  -g test_genomes/dna_fastas/Aromatoleum_bremense_PbN1T.fna \
   -o /path/to/output_dir \
   -s "Aromatoleum_bremense_PbN1T" \
   --window-size 5000
@@ -199,7 +199,7 @@ btex-run-circos \
 ```bash
   btex-run-circos \
   --hmmscan /path/to/btex_hmm_summary.csv \
-  -g /test_genomes/dna_fastas/Aromatoleum_bremense_PbN1T.fna \
+  -g test_genomes/dna_fastas/Aromatoleum_bremense_PbN1T.fna \
   -o /path/to/outdir \
   -s sample_name \
   --window-size 5000 \

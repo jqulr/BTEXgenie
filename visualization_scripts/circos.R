@@ -400,11 +400,18 @@ extract_qualifier_value <- function(x, key) {
   val
 }
 
+extract_prodigal_note_id <- function(x) {
+  m <- stringr::str_match(x, 'ID=([^;"]+)')
+  val <- m[, 2]
+  val[is.na(val)] <- ""
+  val
+}
+
 read_prodigal_gbk_cds <- function(gbk_path) {
   if (!file.exists(gbk_path)) stop(sprintf("[ERROR] Prodigal GBK not found: %s", gbk_path), call. = FALSE)
   lines <- readLines(gbk_path, warn = FALSE)
   if (length(lines) == 0) {
-    return(tibble(contig = character(), start = integer(), end = integer(), strand = integer(), cds_id = character(), locus_tag = character(), protein_id = character()))
+    return(tibble(contig = character(), start = integer(), end = integer(), strand = integer(), cds_id = character(), locus_tag = character(), protein_id = character(), prodigal_id = character()))
   }
 
   current_contig <- NA_character_
@@ -444,6 +451,7 @@ read_prodigal_gbk_cds <- function(gbk_path) {
       qual_text <- paste(qualifiers, collapse = " ")
       locus_tag <- extract_qualifier_value(qual_text, "locus_tag")
       protein_id <- extract_qualifier_value(qual_text, "protein_id")
+      prodigal_id <- extract_prodigal_note_id(qual_text)
 
       if (!current_contig %in% names(per_contig_idx)) per_contig_idx[[current_contig]] <- 0L
       per_contig_idx[[current_contig]] <- per_contig_idx[[current_contig]] + 1L
@@ -456,7 +464,8 @@ read_prodigal_gbk_cds <- function(gbk_path) {
         strand = loc_parsed$strand,
         cds_id = cds_id,
         locus_tag = locus_tag,
-        protein_id = protein_id
+        protein_id = protein_id,
+        prodigal_id = prodigal_id
       )
       idx <- idx + 1L
       i <- j
@@ -467,7 +476,7 @@ read_prodigal_gbk_cds <- function(gbk_path) {
   }
 
   if (length(records) == 0) {
-    return(tibble(contig = character(), start = integer(), end = integer(), strand = integer(), cds_id = character(), locus_tag = character(), protein_id = character()))
+    return(tibble(contig = character(), start = integer(), end = integer(), strand = integer(), cds_id = character(), locus_tag = character(), protein_id = character(), prodigal_id = character()))
   }
   bind_rows(records)
 }
@@ -594,20 +603,23 @@ read_ko_category_map <- function(path) {
 build_cds_id_lookup <- function(cds_df) {
   bind_rows(
     cds_df |>
-      transmute(query_id = cds_id, contig, start, end, strand, cds_id, locus_tag, protein_id),
+      transmute(query_id = cds_id, contig, start, end, strand, cds_id, locus_tag, protein_id, prodigal_id),
     cds_df |>
       filter(nzchar(locus_tag)) |>
-      transmute(query_id = locus_tag, contig, start, end, strand, cds_id, locus_tag, protein_id),
+      transmute(query_id = locus_tag, contig, start, end, strand, cds_id, locus_tag, protein_id, prodigal_id),
     cds_df |>
       filter(nzchar(protein_id)) |>
-      transmute(query_id = protein_id, contig, start, end, strand, cds_id, locus_tag, protein_id)
+      transmute(query_id = protein_id, contig, start, end, strand, cds_id, locus_tag, protein_id, prodigal_id),
+    cds_df |>
+      filter(nzchar(prodigal_id)) |>
+      transmute(query_id = prodigal_id, contig, start, end, strand, cds_id, locus_tag, protein_id, prodigal_id)
   ) |>
     distinct(query_id, .keep_all = TRUE)
 }
 
 join_kofam_to_cds <- function(kofam_df, cds_df, ko_cat_df) {
   if (nrow(kofam_df) == 0) {
-    return(tibble(contig = character(), start = integer(), end = integer(), strand = integer(), query_id = character(), cds_id = character(), locus_tag = character(), protein_id = character(), ko = character(), category = character(), color_hex = character(), score = numeric(), threshold = numeric(), definition = character()))
+    return(tibble(contig = character(), start = integer(), end = integer(), strand = integer(), query_id = character(), cds_id = character(), locus_tag = character(), protein_id = character(), prodigal_id = character(), ko = character(), category = character(), color_hex = character(), score = numeric(), threshold = numeric(), definition = character()))
   }
 
   lookup <- build_cds_id_lookup(cds_df)
@@ -1232,7 +1244,7 @@ run <- function(opt) {
 option_list <- list(
   make_option("--hmmscan", type = "character", help = "Path to btex_hmm_summary.csv or similar hmmscan summary CSV"),
   make_option(c("-o", "--outdir"), type = "character", help = "Output directory"),
-  make_option("-g", "--genome", type = "character", default = NULL, help = "Genome FASTA file for the selected sample"),
+  make_option(c("-g", "--genome"), type = "character", default = NULL, help = "Genome FASTA file for the selected sample"),
   make_option("--prodigal-gbk", dest = "prodigal_gbk", type = "character", default = NULL, help = "Prodigal GenBank file used to map KOfam hits to genomic coordinates"),
   make_option(c("-s", "--sample"), type = "character", help = "Sample/genome name to plot"),
   make_option("--pathway-map", dest = "pathway_map", type = "character", default = NULL, help = "Optional override for pathway_map.tsv"),
