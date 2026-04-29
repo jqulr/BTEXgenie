@@ -204,9 +204,11 @@ btex-run-circos \
   --prodigal-gbk /path/to/sample_prodigal.gbk \
   --kofam-output /path/to/kofam_abv_thres.tsv 
 ```
+
 > [!Note]
-> btex-run-circos takes `--prodigal-gbk` which specifies the prodigal genbank file for parsing genomic coordinates of genes and `--kofam-output` which contain all hits to KOfam HMM database. These are files are produced by `btex-annotate` with the `--kofam` flag.
-> Optional --window-size can be used to control the window size for displaying GC skew and KOfam hit density across the input genome (Default: 5000bp).
+> `btex-run-circos` takes `--prodigal-gbk`, which specifies the Prodigal GenBank file used to parse genomic coordinates of genes, and `--kofam-output`, which contains all hits to the KOfam HMM database. These files are produced by `btex-annotate` with the `--kofam` flag.  
+> Optional `--window-size` can be used to control the window size for displaying GC skew and KOfam hit density across the input genome (default: 5000 bp).
+
 
 **Input:**
 - `btex-run-circos` takes `btex_hmm_summary.csv` together with the genome sequence file for a single sample. In the example above, the genome sequence file for Aromatoleum bremense PbN1T in the test_genomes folder is used.
