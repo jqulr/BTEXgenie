@@ -1,16 +1,6 @@
 #!/usr/bin/env python3
 """
-find_contig_length.py
-
-Walk a directory of genome subdirectories, extract contig lengths from each
-sample's FASTA, and write a combined TSV suitable for circos_from_hmm.py.
-
-The TSV schema is: sample<TAB>contig<TAB>length
-
-usage:
-python /home/juneq/hmm/scripts/circos/find_contig_length.py \
---genomes-dir /home/juneq/hmm/validation_genomes/T12D_validated/all \
---out /home/juneq/hmm/validation_genomes/T12D_validated/all/contig_lengths.tsv
+This script generates a TSV file containing contig lengths for the input genome
 """
 
 from __future__ import annotations

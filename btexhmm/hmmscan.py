@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import argparse, csv, re, subprocess, sys
+import argparse, csv, re, shutil, subprocess, sys
 from pathlib import Path
 from collections import defaultdict
 
@@ -9,17 +9,10 @@ except ImportError:
     from logging_utils import print_log_only, run_logged_command
 
 # This script runs hmmscan on all the HMMs with input protein-coding files and outputs detailed TSV 
-# summary with columns: sample, hmm, hits, scores, ievalues, cutoff_used, total_genes, hit_headers.
-# The cutoff_used column is retained for compatibility and stores the model's
-# sequence-level GA threshold from the HMM library.
-# 
+# btexgenie_summary with columns: sample, hmm, hits, scores, evalues, cutoff_used, total_genes, hit_headers.
+# The cutoff_used column is is the sequence-level GA threshold from the HMM library.
+# The evalue filer is applied to the sequence-level evalue.
 #
-# Example:
-# python /home/juneq/Toluene-HMM/btexhmm/hmmscan.py \
-#   --hmm-lib /home/juneq/Toluene-HMM/btexhmm/hmms/all_models.hmm \
-#   --genomes-dir /home/juneq/Toluene-HMM/btexhmm/test_genomes \
-#   --out /home/juneq/Toluene_test/test_output/hmmscan_summary.csv \
-#   --cpus 8
 
 DNA_EXTENSIONS = {".fna", ".fa", ".fasta"}
 PROTEIN_EXTENSIONS = {".faa", ".aa", ".pep"}
@@ -114,13 +107,13 @@ def filter_domtbl_to_ga(
 
 def parse_domtbl(path: Path):
     """
-    Returns list of (seqid, hmm_name, i_e, bits) tuples from an HMMER hmmscan domtblout.
+    Returns list of (seqid, hmm_name, seq_e, bits) tuples from an HMMER hmmscan domtblout.
 
     For hmmscan domain table:
       target name (col 1)   -> HMM (model) name
       query name  (col 4)   -> sequence id
-      i-Evalue    (col 13)  -> parts[12]
-      bit score   (col 14)  -> parts[13]
+      full seq E-value (col 7) -> parts[6]
+      full seq score   (col 8) -> parts[7]
     """
     rows = []
     with open(path, "rt") as fh:
@@ -132,9 +125,9 @@ def parse_domtbl(path: Path):
                 continue
             hmm_name = parts[0]     # target name = HMM
             seqid = parts[3]        # query name  = protein ID
-            i_e = float(parts[12])  # i-Evalue
-            bits = float(parts[13]) # bit score
-            rows.append((seqid, hmm_name, i_e, bits))
+            seq_e = float(parts[6]) # full sequence E-value
+            bits = float(parts[7])  # full sequence bit score
+            rows.append((seqid, hmm_name, seq_e, bits))
     return rows
 
 
@@ -314,6 +307,25 @@ def run_prodigal_for_inputs(
     return protein_fastas, prodigal_root
 
 
+def materialize_protein_inputs(
+    protein_inputs: list[Path],
+    output_root: Path,
+) -> tuple[list[Path], Path]:
+    prodigal_root = output_root / "prodigal_output"
+    prodigal_root.mkdir(parents=True, exist_ok=True)
+
+    protein_fastas: list[Path] = []
+    for protein_src in protein_inputs:
+        sample = protein_src.stem
+        sample_dir = prodigal_root / sample
+        sample_dir.mkdir(parents=True, exist_ok=True)
+        out_faa = sample_dir / f"{sample}.faa"
+        shutil.copyfile(protein_src, out_faa)
+        protein_fastas.append(out_faa)
+
+    return protein_fastas, prodigal_root
+
+
 def load_headers_for_fasta(protein_faa: Path) -> dict[str, str]:
     """
     Build mapping from sequence id -> full header line (including leading '>') for a single FASTA.
@@ -338,7 +350,6 @@ def run_hmmscan_for_sample(
     hmm_lib: Path,
     domtbl_dir: Path,
     cpus: int,
-    evalue: str | None,
     ga_by_model: dict[str, tuple[float, float]],
 ):
     """
@@ -362,8 +373,6 @@ def run_hmmscan_for_sample(
     # 1) Always write unfiltered domtbl (before GA).
     print_log_only(f"[info] running hmmscan on {protein_faa.name}")
     cmd_pre = ["hmmscan", "--cpu", str(cpus)]
-    if evalue:
-        cmd_pre += ["-E", str(evalue)]
     cmd_pre += ["--domtblout", str(out_dom_pre), str(hmm_lib), str(protein_faa)]
     try:
         run_logged_command(cmd_pre)
@@ -405,7 +414,7 @@ def main(argv: list[str] | None = None):
         description=(
             "Run hmmscan vs protein FASTAs using a concatenated HMM library, "
             "writing one row per best protein hit as "
-            "sample,hmm,score,ievalue,cutoff_used,hit_header. "
+            "sample,hmm,score,evalue,cutoff_used,hit_header. "
             "Sample name is taken from the FASTA basename. "
             "GA thresholds are read from each HMM in the concatenated library."
         )
@@ -421,7 +430,12 @@ def main(argv: list[str] | None = None):
         ),
     )
     ap.add_argument("--cpus", type=int, default=8, help="threads for hmmscan")
-    ap.add_argument("--evalue", type=str, default="1e-5", help="sequence E-value cutoff for reporting (default: 1e-5)")
+    ap.add_argument(
+        "--evalue",
+        type=float,
+        default=1e-5,
+        help="full-sequence E-value cutoff applied to output hits after GA filtering (default: 1e-5)",
+    )
     prodigal_group = ap.add_mutually_exclusive_group()
     prodigal_group.add_argument(
         "-meta",
@@ -445,7 +459,7 @@ def main(argv: list[str] | None = None):
     ap.add_argument(
         "--out",
         required=True,
-        help="CSV path for hit-level output (sample,hmm,score,ievalue,cutoff_used,hit_header)",
+        help="CSV path for hit-level output (sample,hmm,score,evalue,cutoff_used,hit_header)",
     )
     args = ap.parse_args(argv)
 
@@ -483,8 +497,10 @@ def main(argv: list[str] | None = None):
             prodigal_mode=args.prodigal_mode,
         )
     else:
-        protein_fastas = validated_inputs
-        kofam_input_dir = genomes_dir.resolve() if genomes_dir.is_dir() else genomes_dir.parent.resolve()
+        protein_fastas, kofam_input_dir = materialize_protein_inputs(
+            protein_inputs=validated_inputs,
+            output_root=output_root,
+        )
         if args.prodigal_mode is not None:
             print_log_only("[warn] ignoring Prodigal mode flag because protein FASTA inputs were provided")
 
@@ -502,7 +518,6 @@ def main(argv: list[str] | None = None):
             hmm_lib=hmm_lib,
             domtbl_dir=domtbl_dir,
             cpus=args.cpus,
-            evalue=args.evalue,
             ga_by_model=ga_by_model,
         )
 
@@ -524,7 +539,9 @@ def main(argv: list[str] | None = None):
         seqid_to_header = header_maps.get(sample, {})
 
         hits_per_protein = defaultdict(list)
-        for seqid, model_name, i_e, bits in parse_domtbl(domtbl_path):
+        for seqid, model_name, seq_e, bits in parse_domtbl(domtbl_path):
+            if seq_e > args.evalue:
+                continue
             model = model_name
             if model not in model_set:
                 continue
@@ -545,7 +562,7 @@ def main(argv: list[str] | None = None):
                     "seqid": seqid,
                     "diff": diff_score,
                     "bits": bits,
-                    "i_e": i_e,
+                    "seq_e": seq_e,
                     "ga_seq": ga_seq,
                 }
             )
@@ -560,7 +577,7 @@ def main(argv: list[str] | None = None):
                     sample,
                     best_hit["model"],
                     best_hit["bits"],
-                    best_hit["i_e"],
+                    best_hit["seq_e"],
                     best_hit["ga_seq"] if best_hit["ga_seq"] is not None else "",
                     hdr,
                 ]
@@ -571,7 +588,7 @@ def main(argv: list[str] | None = None):
                     "sample": sample,
                     "hmm": best_hit["model"],
                     "score": str(best_hit["bits"]),
-                    "ievalue": str(best_hit["i_e"]),
+                    "evalue": str(best_hit["seq_e"]),
                     "cutoff_used": best_hit["ga_seq"] if best_hit["ga_seq"] is not None else "",
                     "count": 0,
                 }
@@ -586,7 +603,7 @@ def main(argv: list[str] | None = None):
                 "sample",
                 "hmm",
                 "score",
-                "ievalue",
+                "evalue",
                 "cutoff_used",
                 "hit_header",
             ]
@@ -596,7 +613,7 @@ def main(argv: list[str] | None = None):
 
     print(f"wrote {out_path}")
 
-    counts_path = out_path.with_name("btex_hmm_summary_counts.csv")
+    counts_path = out_path.with_name("btex_genie_summary_counts.csv")
     with open(counts_path, "w", newline="") as fw:
         w = csv.writer(fw)
         w.writerow(
@@ -604,7 +621,7 @@ def main(argv: list[str] | None = None):
                 "sample",
                 "hmm",
                 "score",
-                "ievalue",
+                "evalue",
                 "cutoff_used",
                 "count",
             ]
@@ -616,7 +633,7 @@ def main(argv: list[str] | None = None):
                     row["sample"],
                     row["hmm"],
                     row["score"],
-                    row["ievalue"],
+                    row["evalue"],
                     row["cutoff_used"],
                     row["count"],
                 ]

@@ -1,4 +1,5 @@
 import argparse
+import csv
 import shlex
 import shutil
 import subprocess
@@ -24,7 +25,7 @@ def parse_args():
     p.add_argument(
         "--hmmscan",
         default=None,
-        help="Path to hmmscan output CSV (must contain at least sample and hmm columns).",
+        help="Path to btex_genie_summary.csv output.",
     )
     p.add_argument(
         "-g",
@@ -32,13 +33,13 @@ def parse_args():
         dest="genome_dir",
         metavar="GENOMES",
         default=None,
-        help="Optional genome directory with per-genome subdirectories containing kofam_abv_thres.tsv.",
+        help="Alternative prodigal directory with per-genome subdirectories containing kofam_abv_thres.tsv.",
     )
     p.add_argument(
         "-s",
         "--sample",
         default="all",
-        help="Sample name from hmmscan CSV, or 'all' (default: all).",
+        help="Sample name from btex_genie_summary.csv, or 'all' (default: all).",
     )
     p.add_argument(
         "--pathways",
@@ -46,7 +47,7 @@ def parse_args():
         help=(
         f"Comma-separated KEGG pathway IDs (default: {DEFAULT_PATHWAYS}). "
         "Note: Supplying IDs outside of BTEX degradation while using "
-        "BTEX-HMMs scan may result in limited annotations."
+        "btex_genie_summary.csv as input may result in limited annotations."
     ),
     )
     p.add_argument(
@@ -56,6 +57,22 @@ def parse_args():
         help="Output directory (required).",
     )
     return p.parse_args()
+
+
+def hmmscan_input_is_counts_summary(path: Path) -> bool:
+    try:
+        with open(path, newline="", encoding="utf-8") as fh:
+            reader = csv.reader(fh)
+            header = next(reader, [])
+    except OSError:
+        return False
+
+    header_l = {col.strip().lower() for col in header}
+    return (
+        "count" in header_l
+        and "hit_header" not in header_l
+        and "hit_headers" not in header_l
+    )
 
 
 def main():
@@ -119,6 +136,11 @@ def main():
                 else:
                     print(f"[info] Scanning input for default pathways ({DEFAULT_PATHWAYS})")
             print(f"[cmd] {shlex.join(['btex-vis', *[str(part) for part in cmd[2:]]])}")
+            if args.hmmscan and hmmscan_input_is_counts_summary(hmmscan):
+                print(
+                    "[err] counts summary detected, use btex_genie_summary.csv with hit_header col instead."
+                )
+                raise SystemExit(2)
             run_logged_command(cmd)
     except subprocess.CalledProcessError as exc:
         raise SystemExit(exc.returncode)

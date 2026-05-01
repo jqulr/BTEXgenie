@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-# Build KEGG `show_pathway` launchers from hmmscan hits.
+#
 # This script writes HTML launchers and tsv files for inspection, it does not download images.
 #
 # Output directory contains:
@@ -26,7 +26,10 @@ option_list <- list(
   make_option(c("--pathways-supplied"), action = "store_true", dest = "pathways_supplied", default = FALSE,
               help = "Internal flag indicating --pathways was explicitly supplied"),
   make_option(c("--outdir"), type = "character", default = "kegg_urls",
-              help = "Output directory")
+              help = "Output directory"),
+  make_option(c("--fg-color"), type = "character", dest = "fg_color",
+              default = "#FF0000",
+              help = "Outline color for all KOs on the pathway (default: #FF0000 red). Use 'none' to disable outlines.")
 )
 
 opt <- parse_args(OptionParser(option_list = option_list))
@@ -224,15 +227,61 @@ urlenc_spaces_newlines_only <- function(x) {
   x
 }
 
-build_multi_query_btex_outline_split <- function(pathway_kos, ko_universe, kos_by_sample, sample_colors, pathway_ko_groups = list()) {
+build_multi_query_btex_outline_single <- function(pathway_kos, ko_universe, sample_kos, sample_color, pathway_ko_groups = list(), fg_color = "#FF0000") {
+  pathway_kos <- unique(pathway_kos[grepl("^K[0-9]{5}$", pathway_kos)])
+  ko_universe <- unique(ko_universe[grepl("^K[0-9]{5}$", ko_universe)])
+  target_kos <- sort(intersect(pathway_kos, ko_universe))
+  if (length(target_kos) == 0) return("")
+
+  sample_kos <- unique(sample_kos[grepl("^K[0-9]{5}$", sample_kos)])
+  use_outline <- !is.null(fg_color) && nzchar(fg_color) && tolower(fg_color) != "none"
+
+  lines <- character(0)
+  group_keys <- character(0)
+  target_groups <- list()
+
+  if (length(pathway_ko_groups) > 0) {
+    for (g in pathway_ko_groups) {
+      gg <- sort(unique(intersect(g, target_kos)))
+      if (length(gg) == 0) next
+      k <- paste(gg, collapse = "|")
+      if (k %in% group_keys) next
+      group_keys <- c(group_keys, k)
+      target_groups <- c(target_groups, list(gg))
+    }
+  }
+
+  covered <- if (length(target_groups) > 0) unique(unlist(target_groups, use.names = FALSE)) else character(0)
+  for (ko in setdiff(target_kos, covered)) {
+    target_groups <- c(target_groups, list(ko))
+  }
+
+  for (grp in target_groups) {
+    if (!any(grp %in% sample_kos)) {
+      if (use_outline) {
+        lines <- c(lines, vapply(grp, function(ko)
+          paste0("ko:", ko, " #FFFFFF,", fg_color), character(1)))
+      }
+    } else {
+      col <- if (use_outline) paste0(sample_color, ",", fg_color) else sample_color
+      lines <- c(lines, vapply(grp, function(ko) paste0("ko:", ko, " ", col), character(1)))
+    }
+  }
+
+  if (length(lines) == 0) return("")
+  urlenc_spaces_newlines_only(paste(lines, collapse = "\n"))
+}
+
+build_multi_query_btex_outline_split <- function(pathway_kos, ko_universe, kos_by_sample, sample_colors, pathway_ko_groups = list(), fg_color = "#FF0000") {
   samples <- names(sample_colors)
   pathway_kos <- unique(pathway_kos[grepl("^K[0-9]{5}$", pathway_kos)])
   ko_universe <- unique(ko_universe[grepl("^K[0-9]{5}$", ko_universe)])
   target_kos <- sort(intersect(pathway_kos, ko_universe))
   if (length(target_kos) == 0) return("")
 
-  lines <- character(0)
+  use_outline <- !is.null(fg_color) && nzchar(fg_color) && tolower(fg_color) != "none"
 
+  lines <- character(0)
   group_keys <- character(0)
   target_groups <- list()
 
@@ -254,118 +303,28 @@ build_multi_query_btex_outline_split <- function(pathway_kos, ko_universe, kos_b
 
   for (grp in target_groups) {
     present_samples <- samples[vapply(samples, function(s) any(grp %in% kos_by_sample[[s]]), logical(1))]
-    if (length(present_samples) == 0) next
-    cols <- paste(unname(sample_colors[present_samples]), collapse = " ")
-    lines <- c(lines, vapply(grp, function(ko) paste0("ko:", ko, " ", cols), character(1)))
-  }
-
-  if (length(lines) == 0) return("")
-  urlenc_spaces_newlines_only(paste(lines, collapse = "\n"))
-}
-
-build_multi_query_btex_outline_single <- function(pathway_kos, ko_universe, sample_kos, sample_color, pathway_ko_groups = list()) {
-  pathway_kos <- unique(pathway_kos[grepl("^K[0-9]{5}$", pathway_kos)])
-  ko_universe <- unique(ko_universe[grepl("^K[0-9]{5}$", ko_universe)])
-  target_kos <- sort(intersect(pathway_kos, ko_universe))
-  if (length(target_kos) == 0) return("")
-
-  sample_kos <- unique(sample_kos[grepl("^K[0-9]{5}$", sample_kos)])
-  lines <- character(0)
-
-  group_keys <- character(0)
-  target_groups <- list()
-
-  if (length(pathway_ko_groups) > 0) {
-    for (g in pathway_ko_groups) {
-      gg <- sort(unique(intersect(g, target_kos)))
-      if (length(gg) == 0) next
-      k <- paste(gg, collapse = "|")
-      if (k %in% group_keys) next
-      group_keys <- c(group_keys, k)
-      target_groups <- c(target_groups, list(gg))
+    if (length(present_samples) == 0) {
+      if (use_outline) {
+        # on pathway, absent from all samples: white fill + outline
+        lines <- c(lines, vapply(grp, function(ko)
+          paste0("ko:", ko, " #FFFFFF,", fg_color), character(1)))
+      }
+      # if no outline, skip absent KOs entirely (original behaviour)
+    } else {
+      if (use_outline) {
+        cols <- paste(vapply(unname(sample_colors[present_samples]),
+                             function(col) paste0(col, ",", fg_color), character(1)),
+                      collapse = " ")
+      } else {
+        cols <- paste(unname(sample_colors[present_samples]), collapse = " ")
+      }
+      lines <- c(lines, vapply(grp, function(ko) paste0("ko:", ko, " ", cols), character(1)))
     }
   }
 
-  covered <- if (length(target_groups) > 0) unique(unlist(target_groups, use.names = FALSE)) else character(0)
-  for (ko in setdiff(target_kos, covered)) {
-    target_groups <- c(target_groups, list(ko))
-  }
-
-  for (grp in target_groups) {
-    if (!any(grp %in% sample_kos)) next
-    lines <- c(lines, vapply(grp, function(ko) paste0("ko:", ko, " ", sample_color), character(1)))
-  }
-
   if (length(lines) == 0) return("")
   urlenc_spaces_newlines_only(paste(lines, collapse = "\n"))
 }
-
-write_sample_color_legend <- function(path, sample_colors) {
-  df <- data.frame(sample = names(sample_colors),
-                   color = unname(sample_colors),
-                   stringsAsFactors = FALSE)
-  write.table(df, file = path, sep = "\t", quote = FALSE, row.names = FALSE, col.names = TRUE)
-}
-
-set_kegg_ua()
-
-input_mode <- if (!is.null(opt$genome_dir) && nzchar(opt$genome_dir)) "genome_dir" else "hmmscan"
-
-if (identical(input_mode, "hmmscan")) {
-  hm <- read.csv(opt$hmmscan, stringsAsFactors = FALSE, check.names = FALSE)
-  ko_map <- read_ko_map(opt$ko_map)
-  ko_universe <- sort(unique(unlist(ko_map, use.names = FALSE)))
-  ko_universe <- ko_universe[grepl("^K[0-9]{5}$", ko_universe)]
-
-  sample_col_idx <- grep("sample", names(hm), ignore.case = TRUE)[1]
-  hmm_col_idx    <- grep("hmm", names(hm), ignore.case = TRUE)[1]
-  hit_header_col_idx <- grep("^hit_header$|^hit_headers$", names(hm), ignore.case = TRUE)[1]
-  hits_col_idx   <- grep("^hits$|hit_count|num_hits|n_hits", names(hm), ignore.case = TRUE)[1]
-  if (is.na(sample_col_idx) || is.na(hmm_col_idx)) {
-    stop("hmmscan CSV must have columns that match /sample/i and /hmm/i")
-  }
-  sample_col <- names(hm)[sample_col_idx]
-  hmm_col    <- names(hm)[hmm_col_idx]
-
-  if (!is.na(hit_header_col_idx)) {
-    hit_header_col <- names(hm)[hit_header_col_idx]
-    kos_by_sample <- lapply(split(hm, hm[[sample_col]]), function(df) {
-      df_hits <- df[!is.na(df[[hit_header_col]]) & nzchar(trimws(df[[hit_header_col]])), , drop = FALSE]
-
-      kos <- unlist(lapply(df_hits[[hmm_col]], function(h) {
-        key <- tolower(trimws(h))
-        ko_map[[key]]
-      }), use.names = FALSE)
-      kos <- unique(kos)
-      kos[grepl("^K[0-9]{5}$", kos)]
-    })
-  } else if (!is.na(hits_col_idx)) {
-    hits_col   <- names(hm)[hits_col_idx]
-    kos_by_sample <- lapply(split(hm, hm[[sample_col]]), function(df) {
-      hit_vals <- suppressWarnings(as.numeric(df[[hits_col]]))
-      df_hits <- df[!is.na(hit_vals) & hit_vals > 0, , drop = FALSE]
-
-      kos <- unlist(lapply(df_hits[[hmm_col]], function(h) {
-        key <- tolower(trimws(h))
-        ko_map[[key]]
-      }), use.names = FALSE)
-      kos <- unique(kos)
-      kos[grepl("^K[0-9]{5}$", kos)]
-    })
-  } else {
-    stop("hmmscan CSV must contain either hit_header/hit_headers columns or hits-style count columns")
-  }
-} else {
-  kos_by_sample <- read_kos_by_genome_from_dir(opt$genome_dir)
-  ko_universe <- sort(unique(unlist(kos_by_sample, use.names = FALSE)))
-  ko_universe <- ko_universe[grepl("^K[0-9]{5}$", ko_universe)]
-}
-
-dir.create(opt$outdir, showWarnings = FALSE, recursive = TRUE)
-
-pids <- trimws(strsplit(opt$pathways, ",")[[1]])
-pids <- pids[nzchar(pids)]
-pids <- vapply(pids, normalize_pathway_id, character(1))
 
 if (!is.null(opt$sample) && tolower(opt$sample) != "all") {
   samp <- opt$sample
@@ -433,6 +392,7 @@ for (pid in pids) {
     input_label <- if (identical(input_mode, "genome_dir")) "genome" else "input"
     message("[info] Scanning ", input_label, " for ", pathway_meta$filename_stub, ", ", pid)
   }
+  fg_color_effective <- if (identical(input_mode, "genome_dir")) "none" else opt$fg_color
   kos_by_sample_run <- kos_by_sample[run_samples]
   pathway_kos <- get_pathway_kos_from_kgml(pid)
   pathway_ko_groups <- get_pathway_ko_groups_from_kgml(pid)
@@ -446,20 +406,22 @@ for (pid in pids) {
   # ── build multi_query (same as before) ──────────────────────────────────────
   if (!is.null(opt$sample) && tolower(opt$sample) != "all") {
     mq <- build_multi_query_btex_outline_single(
-      pathway_kos = target_kos,
-      ko_universe = target_kos,
-      sample_kos = kos_by_sample[[run_samples[1]]],
-      sample_color = sample_colors[[run_samples[1]]],
-      pathway_ko_groups = pathway_ko_groups
+      pathway_kos       = target_kos,
+      ko_universe       = ko_universe,
+      sample_kos        = kos_by_sample[[run_samples[1]]],
+      sample_color      = sample_colors[[run_samples[1]]],
+      pathway_ko_groups = pathway_ko_groups,
+      fg_color          = fg_color_effective
     )
     label <- paste0("single sample: ", run_samples[1])
   } else {
-    mq <- build_multi_query_btex_outline_split(
-      pathway_kos = target_kos,
-      ko_universe = target_kos,
-      kos_by_sample = kos_by_sample_run,
-      sample_colors = sample_colors,
-      pathway_ko_groups = pathway_ko_groups
+        mq <- build_multi_query_btex_outline_split(
+      pathway_kos       = target_kos,
+      ko_universe       = ko_universe,
+      kos_by_sample     = kos_by_sample_run,
+      sample_colors     = sample_colors,
+      pathway_ko_groups = pathway_ko_groups,
+      fg_color          = fg_color_effective
     )
     label <- "split across samples"
   }

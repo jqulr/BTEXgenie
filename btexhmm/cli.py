@@ -56,8 +56,9 @@ def parse_args():
     )
     p.add_argument(
         "--evalue",
-        default="1e-5",
-        help="Sequence E-value cutoff passed to hmmscan (default: 1e-5)",
+        type=float,
+        default=1e-5,
+        help="Full-sequence E-value cutoff applied to output hits after GA filtering (default: 1e-5)",
     )
     p.add_argument(
         "--kofam",
@@ -75,7 +76,7 @@ def main():
     outdir = Path(args.outdir).resolve()
     outdir.mkdir(parents=True, exist_ok=True)
 
-    out_csv = outdir / "btex_hmm_summary.csv"
+    out_csv = outdir / "btex_genie_summary.csv"
     hmmscan_argv = [
         "--hmm-lib", str(DEFAULT_HMM_LIB),
         "--genomes-dir", str(genomes),
@@ -86,7 +87,7 @@ def main():
         hmmscan_argv.append("-meta")
     elif prodigal_mode == "single":
         hmmscan_argv.append("-single")
-    if args.evalue:
+    if args.evalue is not None:
         hmmscan_argv.extend(["--evalue", str(args.evalue)])
     if args.kofam:
         hmmscan_argv.append("--kofam")
@@ -104,7 +105,7 @@ def main():
         top_cmd.append("--meta")
     elif prodigal_mode == "single":
         top_cmd.append("--single")
-    if args.evalue:
+    if args.evalue is not None:
         top_cmd.extend(["--evalue", str(args.evalue)])
     if args.kofam:
         top_cmd.append("--kofam")

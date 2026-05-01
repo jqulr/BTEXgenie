@@ -1,5 +1,7 @@
 #!/usr/bin/env Rscript
 
+# Circos visualization of pathway hits and GC skew.
+
 suppressPackageStartupMessages({
   library(optparse)
   library(readr)
@@ -823,7 +825,7 @@ write_genbank_hits_gbk <- function(path, genome, features, cmap, dna_path) {
     left_join(cmap |> select(hmm, pathway), by = "hmm") |>
     arrange(contig, start, end, hmm)
 
-  message(sprintf("[info] Writing BTEX-HMM GenBank export -> %s", path))
+  message(sprintf("[info] Writing BTEXgenie GenBank export -> %s", path))
   con <- file(path, open = "w")
   on.exit(close(con), add = TRUE)
 
@@ -873,7 +875,7 @@ write_genbank_hits_gbk <- function(path, genome, features, cmap, dna_path) {
     writeLines(record_lines, con = con, sep = "\n")
   }
 
-  message(sprintf("[info] Finished BTEX-HMM GenBank export -> %s", path))
+  message(sprintf("[info] Finished BTEXgenie GenBank export -> %s", path))
   invisible(path)
 }
 
@@ -1212,7 +1214,7 @@ run <- function(opt) {
   write_hmm_colors_tsv(file.path(sample_dir, "hmm_colors.tsv"), cmap)
   write_karyotype_tsv(file.path(sample_dir, "karyotype.tsv"), contig_lengths)
   write_gene_labels_tsv(file.path(sample_dir, "gene_labels.tsv"), features)
-  write_genbank_hits_gbk(file.path(sample_dir, "btex_hmm_hits.gbk"), genome, features, cmap, opt$genome)
+  write_genbank_hits_gbk(file.path(sample_dir, "btex_genie_hits.gbk"), genome, features, cmap, opt$genome)
   write_gc_skew_tsv(file.path(sample_dir, "gc_skew_windows.tsv"), gc_skew_df)
 
   if (nrow(kofam_hit_df) > 0) {
