@@ -326,6 +326,74 @@ build_multi_query_btex_outline_split <- function(pathway_kos, ko_universe, kos_b
   urlenc_spaces_newlines_only(paste(lines, collapse = "\n"))
 }
 
+write_sample_color_legend <- function(path, sample_colors) {
+  df <- data.frame(sample = names(sample_colors),
+                   color = unname(sample_colors),
+                   stringsAsFactors = FALSE)
+  write.table(df, file = path, sep = "\t", quote = FALSE, row.names = FALSE, col.names = TRUE)
+}
+
+# ── main execution ────────────────────────────────────────────────────────────
+
+set_kegg_ua()
+
+input_mode <- if (!is.null(opt$genome_dir) && nzchar(opt$genome_dir)) "genome_dir" else "hmmscan"
+
+if (identical(input_mode, "hmmscan")) {
+  hm <- read.csv(opt$hmmscan, stringsAsFactors = FALSE, check.names = FALSE)
+  ko_map <- read_ko_map(opt$ko_map)
+  ko_universe <- sort(unique(unlist(ko_map, use.names = FALSE)))
+  ko_universe <- ko_universe[grepl("^K[0-9]{5}$", ko_universe)]
+
+  sample_col_idx     <- grep("sample", names(hm), ignore.case = TRUE)[1]
+  hmm_col_idx        <- grep("hmm", names(hm), ignore.case = TRUE)[1]
+  hit_header_col_idx <- grep("^hit_header$|^hit_headers$", names(hm), ignore.case = TRUE)[1]
+  hits_col_idx       <- grep("^hits$|hit_count|num_hits|n_hits", names(hm), ignore.case = TRUE)[1]
+
+  if (is.na(sample_col_idx) || is.na(hmm_col_idx)) {
+    stop("hmmscan CSV must have columns that match /sample/i and /hmm/i")
+  }
+  sample_col <- names(hm)[sample_col_idx]
+  hmm_col    <- names(hm)[hmm_col_idx]
+
+  if (!is.na(hit_header_col_idx)) {
+    hit_header_col <- names(hm)[hit_header_col_idx]
+    kos_by_sample <- lapply(split(hm, hm[[sample_col]]), function(df) {
+      df_hits <- df[!is.na(df[[hit_header_col]]) & nzchar(trimws(df[[hit_header_col]])), , drop = FALSE]
+      kos <- unlist(lapply(df_hits[[hmm_col]], function(h) {
+        key <- tolower(trimws(h))
+        ko_map[[key]]
+      }), use.names = FALSE)
+      kos <- unique(kos)
+      kos[grepl("^K[0-9]{5}$", kos)]
+    })
+  } else if (!is.na(hits_col_idx)) {
+    hits_col <- names(hm)[hits_col_idx]
+    kos_by_sample <- lapply(split(hm, hm[[sample_col]]), function(df) {
+      hit_vals <- suppressWarnings(as.numeric(df[[hits_col]]))
+      df_hits <- df[!is.na(hit_vals) & hit_vals > 0, , drop = FALSE]
+      kos <- unlist(lapply(df_hits[[hmm_col]], function(h) {
+        key <- tolower(trimws(h))
+        ko_map[[key]]
+      }), use.names = FALSE)
+      kos <- unique(kos)
+      kos[grepl("^K[0-9]{5}$", kos)]
+    })
+  } else {
+    stop("hmmscan CSV must contain either hit_header/hit_headers columns or hits-style count columns")
+  }
+} else {
+  kos_by_sample <- read_kos_by_genome_from_dir(opt$genome_dir)
+  ko_universe <- sort(unique(unlist(kos_by_sample, use.names = FALSE)))
+  ko_universe <- ko_universe[grepl("^K[0-9]{5}$", ko_universe)]
+}
+
+dir.create(opt$outdir, showWarnings = FALSE, recursive = TRUE)
+
+pids <- trimws(strsplit(opt$pathways, ",")[[1]])
+pids <- pids[nzchar(pids)]
+pids <- vapply(pids, normalize_pathway_id, character(1))
+
 if (!is.null(opt$sample) && tolower(opt$sample) != "all") {
   samp <- opt$sample
   if (!samp %in% names(kos_by_sample)) stop("Requested --sample not found in input: ", samp)

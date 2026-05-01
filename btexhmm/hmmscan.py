@@ -11,7 +11,7 @@ except ImportError:
 # This script runs hmmscan on all the HMMs with input protein-coding files and outputs detailed TSV 
 # btexgenie_summary with columns: sample, hmm, hits, scores, evalues, cutoff_used, total_genes, hit_headers.
 # The cutoff_used column is is the sequence-level GA threshold from the HMM library.
-# The evalue filer is applied to the sequence-level evalue.
+# The evalue filter is applied to the sequence-level evalue.
 #
 
 DNA_EXTENSIONS = {".fna", ".fa", ".fasta"}
