@@ -1178,12 +1178,12 @@ run <- function(opt) {
       stop("[ERROR] --plot-btex-hit-contigs-only was set, but no contigs with BTEX-HMM hits were found to plot.", call. = FALSE)
     }
   } else if (nrow(contig_lengths) > 10) {
-    message("[WARNING] More than 10 contigs detected, to enhance readability, only the contigs with hits from kofam or btex-hmm are shown")
-    filter_to_plot_contigs <- unique(c(features$contig, kofam_hit_df$contig))
+    message("[WARNING] More than 10 contigs detected; to enhance readability, only the contigs with BTEXgenie hits are shown")
+    filter_to_plot_contigs <- unique(features$contig)
     filter_to_plot_contigs <- filter_to_plot_contigs[!is.na(filter_to_plot_contigs) & nzchar(filter_to_plot_contigs)]
 
     if (length(filter_to_plot_contigs) == 0) {
-      stop("[ERROR] More than 10 contigs detected, but no contigs with BTEX-HMM or KOfam hits were found to plot.", call. = FALSE)
+      stop("[ERROR] More than 10 contigs detected, but no contigs with BTEX-HMM hits were found to plot.", call. = FALSE)
     }
   }
 
